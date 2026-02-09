@@ -10,10 +10,13 @@
         #ui-layer { position: absolute; top: 0; left: 0; width: 100%; height: 100%; pointer-events: none; z-index: 10; }
         
         .stats { 
-            position: absolute; top: 20px; left: 20px; pointer-events: auto; 
-            background: rgba(10, 10, 15, 0.8); padding: 15px; border-left: 3px solid #8800ff; 
-            backdrop-filter: blur(20px); border-radius: 0 10px 10px 0;
-            box-shadow: 0 0 30px rgba(136, 0, 255, 0.2); transform: scale(0.85); transform-origin: top left;
+            position: absolute; top: 15px; left: 15px; pointer-events: auto;
+            background: rgba(10, 10, 15, 0.85); padding: 12px; border-left: 3px solid #8800ff;
+            backdrop-filter: blur(25px); border-radius: 0 10px 10px 0;
+            box-shadow: 0 0 30px rgba(136, 0, 255, 0.2);
+            transform: scale(0.75); transform-origin: top left;
+            -webkit-font-smoothing: antialiased;
+            text-rendering: optimizeLegibility;
         }
         #energy-display {
             font-size: 1.8rem; color: #fff;
@@ -113,9 +116,14 @@
             font-size: 0.85rem; opacity: 0.5; pointer-events: none; text-align: center; line-height: 1.6;
         }
         canvas { display: block; }
+        #transition-overlay {
+            position: fixed; top: 0; left: 0; width: 100%; height: 100%;
+            background: #000; z-index: 9999; display: none; pointer-events: none;
+        }
     </style>
 </head>
 <body>
+    <div id="transition-overlay"></div>
 
     <div id="ui-layer">
         <div id="profile-btn" onclick="toggleProfile()" style="position: absolute; top: 20px; right: 20px; pointer-events: auto; background: rgba(0, 10, 20, 0.85); padding: 10px 20px; border-radius: 40px; border: 1px solid #0ff3; display: flex; align-items: center; cursor: pointer; backdrop-filter: blur(10px); transition: 0.3s; z-index:100;">
@@ -218,6 +226,22 @@
                         <b style="color:#f0f">Void Singularity</b><br><small>+100% к общему доходу</small>
                         <p style="color:#f0f">Цена: 5 MATTER</p>
                         <button onclick="buyUpgrade('void')" style="background:#f0f; color:#fff">EVOLVE</button>
+                    </div>
+                    <div class="card">
+                        <b style="color:#ffd700">VIP PLATINUM STATUS</b><br><small>Gold Name, Exclusive Badge</small>
+                        <p id="cost-vip" style="color:#ffd700">Цена: 1,000,000,000</p>
+                        <button onclick="buyUpgrade('vip_status')" style="background:#ffd700; color:#000">PURCHASE</button>
+                    </div>
+                    <div class="card">
+                        <b style="color:#ffd700">VIP GOLDEN DRONE</b><br><small>Infinite HP, 10x Power</small>
+                        <p id="cost-vip-drone" style="color:#ffd700">Цена: 100,000,000,000</p>
+                        <button onclick="buyUpgrade('vip_drone')" style="background:#ffd700; color:#000">DEPLOY</button>
+                    </div>
+                    <div class="card">
+                        <b style="color:#0ff">Nickname Neon</b><br><small>Custom color for your ID</small>
+                        <input type="color" id="nick-color-picker" value="#ffffff" style="width:100%; margin-top:5px;">
+                        <p style="color:#0ff">Цена: 1,000,000</p>
+                        <button onclick="buyUpgrade('nick_color')">APPLY COLOR</button>
                     </div>
                 </div>
                 <button onclick="toggleMenu('shop')" style="margin-top:30px; width:100%; padding:15px; background:none; border:1px solid #333; color:#555; cursor:pointer;">BACK [H]</button>
@@ -426,6 +450,9 @@
     <script src="https://www.gstatic.com/firebasejs/8.10.0/firebase-firestore.js"></script>
     <script src="https://www.gstatic.com/firebasejs/8.10.0/firebase-auth.js"></script>
     <script>
+        // --- CONFIG ---
+        const GROQ_API_KEY = "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";
+
         // --- FIREBASE CONFIG ---
         const firebaseConfig = {
             apiKey: "AIzaSyAaeCpAqIEYobZ3RhA37bndjuQBBxOSWJo",
@@ -448,7 +475,11 @@
             "Ancient Tech": { rarity: "Epic", value: 1000, desc: "Mysterious component.", type: "trash" },
             "Energy Sphere": { rarity: "Rare", value: 500, desc: "Instantly gives 5000 NRG.", type: "usable", effect: (s) => s.energy += 5000 },
             "Overdrive Core": { rarity: "Epic", value: 2000, desc: "Permanent +10% production.", type: "usable", effect: (s) => s.multiplier += 0.1 },
-            "Mega Drone": { rarity: "Legendary", value: 5000, desc: "Deploys a Mega Drone.", type: "usable", effect: (s) => spawnDrone('mega') },
+            "Basic Drone": { rarity: "Common", value: 150, desc: "Standard harvester.", type: "drone", droneType: "basic" },
+            "Mega Drone": { rarity: "Legendary", value: 5000, desc: "Deploys a Mega Drone.", type: "drone", droneType: "mega" },
+            "Fragile Drone": { rarity: "Rare", value: 1000, desc: "High power, low HP.", type: "drone", droneType: "fragile" },
+            "Tank Drone": { rarity: "Rare", value: 1500, desc: "High HP harvester.", type: "drone", droneType: "tank" },
+            "VIP Drone": { rarity: "Legendary", value: 1000000, desc: "God-tier drone.", type: "drone", droneType: "vip" },
             "Vip Crown": { rarity: "Legendary", value: 10000, desc: "Grants VIP Status.", type: "usable", effect: (s) => s.isVIP = true }
         };
 
@@ -460,11 +491,15 @@
             { id: "matter_synthesizer", title: "Alchemist", desc: "Synthesize 10 Matter.", goal: 10, type: "matter" },
             { id: "ascended_once", title: "The Chosen One", desc: "Perform your first Ascension.", goal: 1, type: "asc" },
             { id: "lucky_id", title: "Lucky Star", desc: "Acquire a lucky UID.", goal: 1, type: "lucky" },
-            { id: "hardcore_clicker", title: "Manual Overdrive", desc: "Click 1,000 times.", goal: 1000, type: "clicks_total", reward: "Overdrive Core" }
+            { id: "hardcore_clicker", title: "Manual Overdrive", desc: "Click 1,000 times.", goal: 1000, type: "clicks_total", reward: "Overdrive Core" },
+            { id: "vip_status", title: "Platinum VIP", desc: "Acquire VIP Status.", goal: 1, type: "isVIP" },
+            { id: "drone_army", title: "Global Legion", desc: "Own 100 active drones.", goal: 100, type: "drones" },
+            { id: "billionaire", title: "Energy Tycoon", desc: "Reach 1,000,000,000 NRG.", goal: 1000000000, type: "energy" }
         ];
 
         // --- DATA STATE ---
         const state = {
+            isLoaded: false,
             energy: 0,
             xp: 0,
             level: 1,
@@ -496,6 +531,7 @@
             matter: 0,
             antimatter: 0,
             isVIP: false,
+            nickColor: "#ffffff",
             playSpeed: 1,
             contracts: [
                 { id: 1, title: "Energy Surge", desc: "Reach 50,000 NRG", goal: 50000, reward: 5000, type: "energy", done: false },
@@ -536,8 +572,14 @@
 
         firebase.auth().onAuthStateChanged(user => {
             if (user) {
+                const btn = document.getElementById('auth-main-btn');
+                if (btn) {
+                    btn.innerText = "NEURAL LINK ESTABLISHED";
+                    btn.style.background = "#0f0";
+                    btn.style.boxShadow = "0 0 20px #0f0";
+                }
                 loadGameState().then(() => {
-                    setTimeout(runIntroAnimation, 500);
+                    setTimeout(runIntroAnimation, 2000);
                 });
             } else {
                 document.getElementById('auth-overlay').style.display = 'flex';
@@ -546,22 +588,38 @@
 
         function runIntroAnimation() {
             const overlay = document.getElementById('auth-overlay');
+            const trans = document.getElementById('transition-overlay');
+            trans.style.display = 'block';
+            trans.style.opacity = '1';
+
             overlay.style.opacity = '0';
             setTimeout(() => {
                 overlay.style.display = 'none';
                 if (camera) {
-                    const startPos = new THREE.Vector3(0, 1000, 1000);
+                    const startPos = new THREE.Vector3(0, 1500, 1500);
                     camera.position.copy(startPos);
                     const targetPos = new THREE.Vector3(0, 15, 35);
                     let progress = 0;
-                    const duration = 120; // frames
+                    const duration = 300; // frames
+
                     function animateIntro() {
                         progress++;
-                        camera.position.lerpVectors(startPos, targetPos, progress / duration);
+                        const t = progress / duration;
+                        // Smooth easing: cubic-bezier-ish
+                        const ease = t < 0.5 ? 2 * t * t : 1 - Math.pow(-2 * t + 2, 2) / 2;
+
+                        camera.position.lerpVectors(startPos, targetPos, ease);
                         camera.lookAt(0, 5, 0);
+
+                        // Fade out transition overlay
+                        if (progress > duration * 0.5) {
+                            trans.style.opacity = 1 - ((progress - duration * 0.5) / (duration * 0.5));
+                        }
+
                         if (progress < duration) requestAnimationFrame(animateIntro);
                         else {
-                            createToast("NEURAL LINK ESTABLISHED");
+                            trans.style.display = 'none';
+                            createToast("ACIS SYSTEM ONLINE");
                         }
                     }
                     animateIntro();
@@ -570,13 +628,15 @@
         }
 
         async function saveGameState() {
+            if (!state.isLoaded) return;
             const user = firebase.auth().currentUser;
             if (!user) return;
             try {
                 // Sync drone data before saving
                 state.dronesData = state.drones.map(d => ({
                     type: d.type || 'basic',
-                    id: d.mesh.name
+                    id: d.mesh.name,
+                    hp: d.hp
                 }));
 
                 await db.collection("users").doc(user.uid).set({
@@ -618,6 +678,13 @@
             const user = firebase.auth().currentUser;
             if (!user) return;
             try {
+                // Clear existing drones
+                state.drones.forEach(d => {
+                    scene.remove(d.mesh);
+                    if (d.laser) scene.remove(d.laser);
+                });
+                state.drones = [];
+
                 const doc = await db.collection("users").doc(user.uid).get();
                 if (doc.exists) {
                     const data = doc.data();
@@ -645,7 +712,12 @@
 
                     // Restore Drones
                     if (state.drones.length === 0 && state.dronesData.length > 0) {
-                        state.dronesData.forEach(d => spawnDrone(d.type));
+                        state.dronesData.forEach(d => {
+                            spawnDrone(d.type);
+                            // Set HP for the last spawned drone
+                            const active = state.drones[state.drones.length - 1];
+                            if (active && d.hp !== undefined) active.hp = d.hp;
+                        });
                     }
 
                     // Sync UI
@@ -660,8 +732,10 @@
                     console.log("New neural profile initialized.");
                     state.profile.uid = generateUID();
                     state.profile.lucky = isLuckyUID(state.profile.uid);
-                    saveGameState();
+                    state.isLoaded = true;
+                    await saveGameState();
                 }
+                state.isLoaded = true;
             } catch (e) { console.error("Load Error", e); }
         }
 
@@ -683,9 +757,9 @@
             camera = new THREE.PerspectiveCamera(65, window.innerWidth / window.innerHeight, 0.1, 2000);
             camera.position.set(0, 15, 35);
 
-            renderer = new THREE.WebGLRenderer({ antialias: true, logarithmicDepthBuffer: true });
+            renderer = new THREE.WebGLRenderer({ antialias: true, logarithmicDepthBuffer: true, powerPreference: "high-performance" });
             renderer.setSize(window.innerWidth, window.innerHeight);
-            renderer.setPixelRatio(window.devicePixelRatio);
+            renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2)); // High quality but capped
             document.body.appendChild(renderer.domElement);
 
             raycaster = new THREE.Raycaster();
@@ -891,7 +965,7 @@
 
             animate();
             startSystems();
-            loadGameState();
+            // Removed redundant loadGameState() - handled by auth observer
             setInterval(saveGameState, 60000); // Auto-save every minute
         }
 
@@ -1027,8 +1101,18 @@
             drone.name = "DRONE_" + Math.random().toString(36).substr(2, 5);
 
             let coreColor = 0x00ffff;
-            if (type === 'mega') coreColor = 0xff00ff;
-            if (type === 'legendary') coreColor = 0xffd700;
+            let hp = 100;
+            let multiplier = 1;
+            let speed = 1;
+            let range = 30;
+
+            if (type === 'mega') { coreColor = 0xff00ff; multiplier = 2.5; }
+            if (type === 'legendary') { coreColor = 0xffd700; multiplier = 5; }
+            if (type === 'fragile') { coreColor = 0xff4444; multiplier = 4; speed = 1.2; hp = 30; }
+            if (type === 'tank') { coreColor = 0x4444ff; multiplier = 0.5; hp = 500; }
+            if (type === 'scavenger') { coreColor = 0x44ff44; multiplier = 0.8; }
+            if (type === 'turbo') { coreColor = 0xffff44; multiplier = 1.5; speed = 2; }
+            if (type === 'vip') { coreColor = 0xffd700; multiplier = 10; hp = Infinity; }
 
             // Sphere Core
             const body = new THREE.Mesh(new THREE.SphereGeometry(0.4, 16, 16), new THREE.MeshStandardMaterial({color: coreColor, emissive: coreColor, emissiveIntensity: 2}));
@@ -1065,11 +1149,24 @@
             const laser = new THREE.Line(laserGeo, new THREE.LineBasicMaterial({color: 0xff00ff, transparent: true, opacity: 0}));
             scene.add(laser);
 
-            state.drones.push({ mesh: drone, laser, light, ring1, ring2, timer: Math.random() * 10, type });
+            state.drones.push({
+                mesh: drone, laser, light, ring1, ring2,
+                timer: Math.random() * 10, type, hp, maxHp: hp,
+                multiplier, speed, range
+            });
         }
 
         function checkClick() {
             raycaster.setFromCamera(mouse, camera);
+
+            // Random Drone Drop Logic
+            if (Math.random() < 0.001) { // 0.1% chance on click
+                const types = ['fragile', 'tank', 'scavenger', 'turbo'];
+                const type = types[Math.floor(Math.random()*types.length)];
+                state.inventory.push(type.charAt(0).toUpperCase() + type.slice(1) + " Drone");
+                createToast("RARE DROP: NEW DRONE FOUND!");
+                updateInventoryUI();
+            }
 
             if (isSkillMode) {
                 const hits = raycaster.intersectObjects(skillGroup.children, true);
@@ -1111,7 +1208,10 @@
                 
                 showLootPop(hits[0].point);
 
-                if(Math.random() < 0.15) {
+                let scavMult = 1;
+                state.drones.forEach(d => { if(d.type === 'scavenger') scavMult += 0.2; });
+
+                if(Math.random() < 0.15 * scavMult) {
                     const keys = Object.keys(state.market);
                     const found = keys[Math.floor(Math.random()*keys.length)];
                     state.inventory.push(found);
@@ -1155,6 +1255,51 @@
             t.innerText = txt;
             document.body.appendChild(t);
             setTimeout(() => t.remove(), 2000);
+        }
+
+        function createExplosion(pos) {
+            const count = 50;
+            const geometry = new THREE.BufferGeometry();
+            const positions = new Float32Array(count * 3);
+            const velocities = [];
+
+            for (let i = 0; i < count; i++) {
+                positions[i * 3] = pos.x;
+                positions[i * 3 + 1] = pos.y;
+                positions[i * 3 + 2] = pos.z;
+                velocities.push(new THREE.Vector3(
+                    (Math.random() - 0.5) * 2,
+                    (Math.random() - 0.5) * 2,
+                    (Math.random() - 0.5) * 2
+                ));
+            }
+
+            geometry.setAttribute('position', new THREE.BufferAttribute(positions, 3));
+            const material = new THREE.PointsMaterial({ color: 0xffaa00, size: 0.5, transparent: true });
+            const points = new THREE.Points(geometry, material);
+            scene.add(points);
+
+            let lifetime = 60;
+            const animateExplosion = () => {
+                lifetime--;
+                const posAttr = geometry.attributes.position;
+                for (let i = 0; i < count; i++) {
+                    posAttr.array[i * 3] += velocities[i].x;
+                    posAttr.array[i * 3 + 1] += velocities[i].y;
+                    posAttr.array[i * 3 + 2] += velocities[i].z;
+                }
+                posAttr.needsUpdate = true;
+                material.opacity = lifetime / 60;
+
+                if (lifetime > 0) {
+                    requestAnimationFrame(animateExplosion);
+                } else {
+                    scene.remove(points);
+                    geometry.dispose();
+                    material.dispose();
+                }
+            };
+            animateExplosion();
         }
 
         function onMouseMove(e) {
@@ -1262,8 +1407,14 @@
         }
 
         function buyUpgrade(type) {
-            if(state.energy >= state.costs[type]) {
-                state.energy -= state.costs[type];
+            let cost = state.costs[type];
+            // Special costs for new items
+            if (type === 'vip_status') cost = 1000000000;
+            if (type === 'vip_drone') cost = 100000000000;
+            if (type === 'nick_color') cost = 1000000;
+
+            if(state.energy >= cost) {
+                state.energy -= cost;
                 if(type === 'click') {
                     state.clickPower += 5;
                     state.costs.click = Math.round(state.costs.click * 1.8);
@@ -1280,6 +1431,15 @@
                 } else if(type === 'plating') {
                     state.costs.plating = Math.round(state.costs.plating * 2);
                     createToast("PLATING REINFORCED");
+                } else if(type === 'vip_status') {
+                    state.isVIP = true;
+                    createToast("VIP PLATINUM STATUS ACQUIRED!");
+                } else if(type === 'vip_drone') {
+                    spawnDrone('vip');
+                    createToast("VIP GOLDEN DRONE DEPLOYED!");
+                } else if(type === 'nick_color') {
+                    state.nickColor = document.getElementById('nick-color-picker').value;
+                    createToast("NEON COLOR APPLIED");
                 }
                 updateUI();
             } else if (type === 'void' && state.matter >= 5) {
@@ -1297,12 +1457,16 @@
                 item.effect(state);
                 state.inventory.splice(idx, 1);
                 createToast(`USED: ${name.toUpperCase()}`);
-                updateInventoryUI();
-                updateUI();
-                saveGameState();
+            } else if (item && item.type === "drone") {
+                spawnDrone(item.droneType);
+                state.inventory.splice(idx, 1);
+                createToast(`DEPLOYED: ${name.toUpperCase()}`);
             } else {
-                createToast("NOT USABLE");
+                return createToast("NOT USABLE");
             }
+            updateInventoryUI();
+            updateUI();
+            saveGameState();
         }
 
         function sellItem(idx) {
@@ -1349,13 +1513,22 @@
             reader.readAsDataURL(file);
         }
 
-        function updateProfile() {
+        async function updateProfile() {
             state.profile.name = document.getElementById('nick-input').value || "Player";
             state.profile.avatar = document.getElementById('avatar-input').value || "https://via.placeholder.com/150";
 
             document.getElementById('profile-name-span').innerText = state.profile.name;
             document.getElementById('profile-avatar-img').src = state.profile.avatar;
             document.getElementById('modal-avatar-img').src = state.profile.avatar;
+
+            // Optional: Save avatar to public gallery collection
+            if (state.profile.avatar.startsWith('data:')) {
+                const user = firebase.auth().currentUser;
+                await db.collection("avatars").doc(user.uid).set({
+                    url: state.profile.avatar,
+                    owner: state.profile.name
+                });
+            }
 
             createToast("NEURAL DATA UPDATED");
             saveGameState();
@@ -1381,46 +1554,69 @@
             ACHIEVEMENTS.forEach(ach => {
                 const isUnlocked = state.achievements.includes(ach.id);
                 const div = document.createElement('div');
-                div.style.cssText = `background:rgba(0,255,255,${isUnlocked ? '0.1' : '0.02'}); border:1px solid ${isUnlocked ? '#0ff' : '#333'}; padding:15px; border-radius:12px; text-align:center; transition:0.3s; cursor:help;`;
+                div.style.cssText = `background:rgba(0,255,255,${isUnlocked ? '0.1' : '0.02'}); border:1px solid ${isUnlocked ? '#0ff' : '#333'}; padding:15px; border-radius:12px; text-align:center; transition:0.3s; cursor:pointer; position:relative;`;
                 div.innerHTML = `
-                    <div id="medal-${ach.id}" style="height:80px; width:80px; margin:0 auto 10px;"></div>
-                    <b style="color:${isUnlocked ? '#0ff' : '#555'}; font-size:0.7rem;">${ach.title}</b>
-                    <div class="ach-detail" style="display:none; position:absolute; background:rgba(0,0,0,0.9); border:1px solid #0ff; padding:10px; z-index:100; font-size:0.6rem; width:150px; text-align:left;">
-                        <b style="color:#0ff">${ach.title}</b><br>${ach.desc}<br>
-                        <span style="color:${isUnlocked ? '#0f0' : '#f00'}">${isUnlocked ? 'COMPLETED' : 'LOCKED'}</span>
+                    <div id="medal-${ach.id}" style="height:100px; width:100px; margin:0 auto 10px;"></div>
+                    <b style="color:${isUnlocked ? '#0ff' : '#555'}; font-size:0.6rem;">${ach.title}</b>
+                    <div class="ach-detail" style="display:none; position:absolute; top:110%; left:0; right:0; background:rgba(0,10,20,0.95); border:1px solid #0ff; padding:10px; z-index:100; font-size:0.6rem; text-align:left; backdrop-filter:blur(10px); box-shadow:0 0 20px #0ff4;">
+                        <b style="color:#0ff; text-transform:uppercase;">${ach.title}</b><br>
+                        <p style="margin:5px 0; color:#aaa;">${ach.desc}</p>
+                        <span style="color:${isUnlocked ? '#0f0' : '#f00'}; font-weight:bold;">${isUnlocked ? '✓ SECURED' : '⚠ ENCRYPTED'}</span>
                     </div>
                 `;
-                div.onmouseover = () => div.querySelector('.ach-detail').style.display = 'block';
-                div.onmouseout = () => div.querySelector('.ach-detail').style.display = 'none';
+                div.onclick = (e) => {
+                    const detail = div.querySelector('.ach-detail');
+                    const isVisible = detail.style.display === 'block';
+                    document.querySelectorAll('.ach-detail').forEach(d => d.style.display = 'none');
+                    detail.style.display = isVisible ? 'none' : 'block';
+                };
                 grid.appendChild(div);
 
-                if (isUnlocked) initMedal3D(`medal-${ach.id}`, ach.id);
+                initMedal3D(`medal-${ach.id}`, ach.id, isUnlocked);
             });
         }
 
-        function initMedal3D(containerId, id) {
+        function initMedal3D(containerId, id, unlocked) {
             const container = document.getElementById(containerId);
+            if (!container) return;
             const sceneMedal = new THREE.Scene();
             const cameraMedal = new THREE.PerspectiveCamera(50, 1, 0.1, 100);
-            cameraMedal.position.z = 5;
+            cameraMedal.position.z = 4;
             const rendererMedal = new THREE.WebGLRenderer({ antialias: true, alpha: true });
-            rendererMedal.setSize(80, 80);
+            rendererMedal.setSize(100, 100);
             container.appendChild(rendererMedal.domElement);
 
-            const medalGeo = new THREE.TorusGeometry(1.2, 0.3, 16, 100);
-            const medalMat = new THREE.MeshStandardMaterial({color: 0xffd700, emissive: 0xffd700, emissiveIntensity: 0.5});
-            const medal = new THREE.Mesh(medalGeo, medalMat);
+            let medal;
+            const color = unlocked ? 0xffd700 : 0x333333;
+
+            // Different shapes for different achievements
+            if (id.includes('click')) {
+                medal = new THREE.Mesh(new THREE.IcosahedronGeometry(1.2, 0), new THREE.MeshStandardMaterial({color, wireframe:!unlocked}));
+            } else if (id.includes('rich') || id.includes('billionaire')) {
+                medal = new THREE.Mesh(new THREE.OctahedronGeometry(1.2, 0), new THREE.MeshStandardMaterial({color, wireframe:!unlocked}));
+            } else {
+                medal = new THREE.Mesh(new THREE.TorusKnotGeometry(0.8, 0.3, 64, 8), new THREE.MeshStandardMaterial({color, wireframe:!unlocked}));
+            }
+
+            if (unlocked) {
+                medal.material.emissive = new THREE.Color(color);
+                medal.material.emissiveIntensity = 0.5;
+            }
             sceneMedal.add(medal);
 
             const light = new THREE.PointLight(0xffffff, 2);
             light.position.set(2, 2, 5);
             sceneMedal.add(light);
-            sceneMedal.add(new THREE.AmbientLight(0xffffff, 0.5));
+            sceneMedal.add(new THREE.AmbientLight(0x404040, 1));
 
             function animateMedal() {
-                if (document.getElementById('achievements-overlay').style.display === 'none') return;
+                if (document.getElementById('achievements-overlay').style.display === 'none') {
+                    rendererMedal.dispose();
+                    return;
+                }
                 requestAnimationFrame(animateMedal);
                 medal.rotation.y += 0.02;
+                medal.rotation.x += 0.01;
                 rendererMedal.render(sceneMedal, cameraMedal);
             }
             animateMedal();
@@ -1490,20 +1686,40 @@
                 return;
             }
             const overlay = document.getElementById('trade-overlay');
-            overlay.style.display = overlay.style.display === 'flex' ? 'none' : 'flex';
+            const isOpening = overlay.style.display !== 'flex';
+            overlay.style.display = isOpening ? 'flex' : 'none';
+            if (isOpening) loadTradeBoard();
         }
 
         let myTradeItems = [];
+        let tradeListener = null;
+
         function openTradeInv() {
-            // Simplified: Add a random item from inventory to trade
-            if (state.inventory.length > 0) {
-                const item = state.inventory.pop();
-                myTradeItems.push(item);
-                renderTradeSlots();
-                updateInventoryUI();
-            } else {
-                createToast("INVENTORY EMPTY");
-            }
+            const overlay = document.createElement('div');
+            overlay.className = 'overlay';
+            overlay.style.display = 'flex';
+            overlay.innerHTML = `
+                <div class="menu-window" style="max-width: 400px;">
+                    <h3>SELECT ITEM</h3>
+                    <div class="inv-grid" id="trade-select-grid"></div>
+                    <button onclick="this.parentElement.parentElement.remove()" style="margin-top:20px; width:100%;">CANCEL</button>
+                </div>
+            `;
+            document.body.appendChild(overlay);
+
+            const grid = document.getElementById('trade-select-grid');
+            state.inventory.forEach((name, i) => {
+                const div = document.createElement('div');
+                div.className = 'inv-item';
+                div.innerHTML = `<b>${name}</b>`;
+                div.onclick = () => {
+                    myTradeItems.push(state.inventory.splice(i, 1)[0]);
+                    renderTradeSlots();
+                    updateInventoryUI();
+                    overlay.remove();
+                };
+                grid.appendChild(div);
+            });
         }
 
         function renderTradeSlots() {
@@ -1512,22 +1728,121 @@
             myTradeItems.forEach((name, i) => {
                 const div = document.createElement('div');
                 div.className = 'inv-item';
-                div.innerHTML = `<b style="font-size:0.6rem;">${name}</b>`;
+                div.innerHTML = `<b style="font-size:0.6rem;">${name}</b><br><button onclick="removeItemFromTrade(${i})" style="font-size:0.5rem;">REMOVE</button>`;
+                grid.appendChild(div);
+            });
+        }
+
+        function removeItemFromTrade(i) {
+            state.inventory.push(myTradeItems.splice(i, 1)[0]);
+            renderTradeSlots();
+            updateInventoryUI();
+        }
+
+        async function createTradeOffer() {
+            if (myTradeItems.length === 0) return createToast("ADD ITEMS TO OFFER");
+            const user = firebase.auth().currentUser;
+            try {
+                await db.collection("trades").add({
+                    offerer: user.uid,
+                    offererName: state.profile.name,
+                    offererItems: myTradeItems,
+                    receiverItems: [], // Items to be added by acceptor
+                    status: "open",
+                    offererConfirmed: true,
+                    receiverConfirmed: false,
+                    createdAt: firebase.firestore.FieldValue.serverTimestamp()
+                });
+                myTradeItems = [];
+                renderTradeSlots();
+                createToast("QUANTUM OFFER BROADCASTED");
+                loadTradeBoard();
+            } catch(e) { createToast("TRANSMISSION ERROR"); }
+        }
+
+        async function loadTradeBoard() {
+            const grid = document.getElementById('partner-trade-slots');
+            grid.innerHTML = '<div style="color:#0f0">Scanning network...</div>';
+
+            const snapshot = await db.collection("trades").where("status", "==", "open").limit(10).get();
+            grid.innerHTML = '';
+            snapshot.forEach(doc => {
+                const trade = doc.data();
+                if (trade.offerer === firebase.auth().currentUser.uid) return;
+
+                const div = document.createElement('div');
+                div.style.cssText = "background:rgba(0,255,0,0.1); border:1px solid #0f0; padding:15px; margin-bottom:15px; border-radius:10px; position:relative;";
+                div.innerHTML = `
+                    <div style="font-size:0.7rem; color:#0f0; margin-bottom:10px;">NODE: ${trade.offererName}</div>
+                    <div style="font-size:0.6rem; color:#fff; background:rgba(0,0,0,0.3); padding:8px; border-radius:4px;">
+                        <b>WANTS TO GIVE:</b><br>${trade.offererItems.join(', ')}
+                    </div>
+                    <div style="margin-top:10px; font-size:0.5rem; color:#aaa;">Add item from your cargo to exchange:</div>
+                    <button onclick="acceptTradeMutual('${doc.id}')" style="margin-top:10px; background:#0f0; color:#000; border:none; padding:10px; cursor:pointer; width:100%; font-family:'Orbitron'; font-weight:bold; border-radius:4px; transition:0.3s;">INITIALIZE EXCHANGE</button>
+                `;
+                grid.appendChild(div);
+            });
+        }
+
+        async function acceptTradeMutual(tradeId) {
+            // Step 1: Acceptor selects item to give back
+            if (state.inventory.length === 0) return createToast("CARGO EMPTY");
+
+            const overlay = document.createElement('div');
+            overlay.className = 'overlay';
+            overlay.style.display = 'flex';
+            overlay.innerHTML = `
+                <div class="menu-window" style="max-width: 400px;">
+                    <h3>SELECT ITEM TO EXCHANGE</h3>
+                    <div class="inv-grid" id="exchange-select-grid"></div>
+                    <button onclick="this.parentElement.parentElement.remove()" style="margin-top:20px; width:100%;">CANCEL</button>
+                </div>
+            `;
+            document.body.appendChild(overlay);
+
+            const grid = document.getElementById('exchange-select-grid');
+            state.inventory.forEach((name, i) => {
+                const div = document.createElement('div');
+                div.className = 'inv-item';
+                div.innerHTML = `<b>${name}</b>`;
+                div.onclick = async () => {
+                    const myItem = state.inventory.splice(i, 1)[0];
+                    overlay.remove();
+
+                    const user = firebase.auth().currentUser;
+                    const tradeRef = db.collection("trades").doc(tradeId);
+
+                    try {
+                        await db.runTransaction(async (transaction) => {
+                            const doc = await transaction.get(tradeRef);
+                            if (!doc.exists || doc.data().status !== "open") throw "Link Lost";
+
+                            const tradeData = doc.data();
+                            transaction.update(tradeRef, {
+                                status: "completed",
+                                receiver: user.uid,
+                                receiverName: state.profile.name,
+                                receiverItems: [myItem],
+                                receiverConfirmed: true
+                            });
+
+                            // Give offerer items to receiver
+                            state.inventory.push(...tradeData.offererItems);
+                        });
+                        createToast("QUANTUM EXCHANGE COMPLETE");
+                        updateInventoryUI();
+                        loadTradeBoard();
+                    } catch(e) {
+                        state.inventory.push(myItem); // Refund
+                        createToast(e);
+                    }
+                };
                 grid.appendChild(div);
             });
         }
 
         function confirmTrade() {
-            if (myTradeItems.length === 0) {
-                createToast("ADD ITEMS TO TRADE");
-                return;
-            }
-            // Simulated trade completion
-            createToast("EXCHANGE COMPLETED SUCCESSFULLY");
-            myTradeItems = [];
-            renderTradeSlots();
-            toggleTrading();
-            saveGameState();
+            createTradeOffer();
         }
 
         async function askAI() {
@@ -1546,12 +1861,12 @@
                 method: "POST",
                 headers: {
                     "Content-Type": "application/json",
-                    "Authorization": "Bearer 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"
+                    "Authorization": "Bearer " + GROQ_API_KEY
                 },
                 body: JSON.stringify({
                     model: "llama3-8b-8192",
                     messages: [
-                        { role: "system", content: "You are KRONOS, the AI assistant of 'Acis System'. You know the game mechanics: Energy (NRG), Matter, Drones, Settlements, Trading (LVL 20+), Leveling, Achievements, and Ascension. You provide technical help and lore. Be concise and professional." },
+                        { role: "system", content: "You are KRONOS, the high-level diagnostic AI of 'Acis System'. Your core directive is to assist players with deep technical knowledge of game mechanics. \nMechanics:\n- Energy (NRG): Primary currency harvested from the Core or by Drones. Used for upgrades and synthesis.\n- Drones: Autonomous harvesters. Types include Basic, Mega, Fragile (high power, low durability), Tank (high HP), Scavenger (item drops), Turbo (high frequency), and VIP (Gold, infinite HP, 10x power).\n- Durability: Drones can break in combat or over time. VIP drones are immune.\n- Settlements: AI-controlled bases that spawn randomly. Can be attacked for rare loot but they will defend themselves.\n- Trading (M key): Unlocks at Level 20. Uses Firestore for secure item exchange between players.\n- Ascension: Reset progress for Antimatter. Each Antimatter gives permanent x2 multipliers.\n- VIP Status: $1B NRG. Gives a gold name, badge, and access to VIP drones.\n- Leveling (T key): Progress through XP gained from clicking and drones.\n- Achievements (R key): Earn 3D medals for milestones.\nIf a player reports a 'bug', analyze if it's a known mechanic (like storage limit leakage) or a technical issue. Be professional, slightly clinical, and extremely helpful." },
                         { role: "user", content: query }
                     ]
                 })
@@ -1576,6 +1891,20 @@
             const grid = document.getElementById('inventory-grid');
             if (!grid) return;
             grid.innerHTML = '';
+
+            // Add active drones to UI with a "RETURN" button
+            state.drones.forEach((d, i) => {
+                const div = document.createElement('div');
+                div.className = 'inv-item';
+                div.style.borderColor = "#ffd70044";
+                div.innerHTML = `
+                    <b style="color:#0ff">ACTIVE ${d.type.toUpperCase()}</b><br>
+                    <small style="font-size:0.5rem; color:#0f0">HP: ${d.hp === Infinity ? 'INF' : Math.floor(d.hp)}</small><br>
+                    <button onclick="returnDrone(${i})" style="width:100%; margin-top:5px; font-size:0.6rem; background:#f0f; color:#fff; border:none; cursor:pointer;">RETURN TO CARGO</button>
+                `;
+                grid.appendChild(div);
+            });
+
             state.inventory.forEach((name, i) => {
                 const item = ITEMS[name] || { rarity: "Unknown", value: 0, desc: "???", type: "trash" };
                 const div = document.createElement('div');
@@ -1590,13 +1919,25 @@
                     <small style="font-size:0.5rem; color:#aaa">${item.rarity}</small><br>
                     <p style="font-size:0.5rem; color:#888; margin:5px 0;">${item.desc}</p>
                     <div style="display:flex; gap:5px; margin-top:5px;">
-                        ${item.type === 'usable' ? `<button onclick="useItem(${i})" style="flex:1; font-size:0.6rem; cursor:pointer; background:#0f0; border:none; color:#000; border-radius:2px; padding:3px;">USE</button>` : ''}
+                        ${(item.type === 'usable' || item.type === 'drone') ? `<button onclick="useItem(${i})" style="flex:1; font-size:0.6rem; cursor:pointer; background:#0f0; border:none; color:#000; border-radius:2px; padding:3px;">${item.type === 'drone' ? 'DEPLOY' : 'USE'}</button>` : ''}
                         <button onclick="sellItem(${i})" style="flex:1; font-size:0.6rem; cursor:pointer; background:#f00; border:none; color:#fff; border-radius:2px; padding:3px;">SELL</button>
                     </div>
                 `;
                 grid.appendChild(div);
             });
             updateExpeditionsUI();
+        }
+
+        function returnDrone(i) {
+            const d = state.drones[i];
+            const name = d.type.charAt(0).toUpperCase() + d.type.slice(1) + " Drone";
+            state.inventory.push(name);
+            scene.remove(d.mesh);
+            scene.remove(d.laser);
+            state.drones.splice(i, 1);
+            createToast("DRONE RETURNED TO CARGO");
+            updateInventoryUI();
+            saveGameState();
         }
 
         function startExpedition() {
@@ -1719,6 +2060,10 @@
         function setGameSpeed(s) {
             state.playSpeed = s;
             createToast(`TIME DILATION: x${s}`);
+            // Visual feedback for selected speed
+            document.querySelectorAll('#speed-controls button').forEach(b => {
+                b.style.borderColor = b.innerText.includes(s) ? "#0ff" : "#0ff4";
+            });
         }
         function togglePause() {
             isPaused = !isPaused;
@@ -1733,6 +2078,9 @@
             if (state.isVIP) {
                 document.getElementById('vip-badge').style.display = 'block';
                 document.getElementById('profile-name-span').style.color = '#ffd700';
+                document.getElementById('profile-name-span').classList.add('vip-glow');
+            } else {
+                document.getElementById('profile-name-span').style.color = state.nickColor || '#ffffff';
             }
             document.getElementById('drone-count').innerText = state.drones.length;
             if (document.getElementById('matter-val')) {
@@ -1870,6 +2218,16 @@
                 const income = baseIncome * state.multiplier * weatherMult * antiMult * (state.heat > 90 ? 0.1 : 1);
                 state.energy += income;
                 addXP(income * 0.01);
+
+                // Random drone drop from passive drones
+                if (Math.random() < 0.00005 * state.drones.length) {
+                    const types = ['fragile', 'tank', 'scavenger', 'turbo'];
+                    const type = types[Math.floor(Math.random()*types.length)];
+                    state.inventory.push(type.charAt(0).toUpperCase() + type.slice(1) + " Drone");
+                    createToast("DRONE RECOVERED BY FLEET!");
+                    updateInventoryUI();
+                }
+
                 state.heat = Math.min(100, state.heat + (income * 0.05));
                 if (state.heat > 0) state.heat = Math.max(0, state.heat - 0.02); // Passive cooling
 
@@ -2023,9 +2381,9 @@
                 camera.position.add(move);
 
                 // Boundaries
-                camera.position.x = Math.max(-200, Math.min(200, camera.position.x));
-                camera.position.z = Math.max(-200, Math.min(200, camera.position.z));
-                camera.position.y = Math.max(1, Math.min(100, camera.position.y));
+                camera.position.x = THREE.MathUtils.clamp(camera.position.x, -250, 250);
+                camera.position.z = THREE.MathUtils.clamp(camera.position.z, -250, 250);
+                camera.position.y = THREE.MathUtils.clamp(camera.position.y, 1.5, 120);
 
                 if (state.turboActive) {
                     camera.position.x += (Math.random() - 0.5) * 0.2;
@@ -2079,9 +2437,12 @@
                 }
             });
 
-            // Drones
-            state.drones.forEach(d => {
-                d.timer += delta;
+            // Drones Logic
+            for (let i = state.drones.length - 1; i >= 0; i--) {
+                const d = state.drones[i];
+                d.timer += delta * d.speed;
+
+                // Movement
                 d.mesh.position.y = 8 + Math.sin(d.timer * 2) * 3;
                 d.mesh.position.x = Math.cos(d.timer) * 20 - 15;
                 d.mesh.position.z = Math.sin(d.timer) * 15;
@@ -2091,15 +2452,61 @@
                 d.ring2.rotation.y += 0.03;
                 d.light.intensity = 1 + Math.sin(time * 5) * 0.5;
                 
-                // Laser logic
-                if(Math.sin(d.timer * 10) > 0.7) {
-                    d.laser.material.opacity = 0.8;
-                    const points = [d.mesh.position.clone(), core.position.clone()];
-                    d.laser.geometry.setFromPoints(points);
+                // Combat: Targeting Settlements
+                let target = null;
+                let minDist = Infinity;
+                settlements.forEach(s => {
+                    const dist = d.mesh.position.distanceTo(s.group.position);
+                    if (dist < d.range && dist < minDist) {
+                        minDist = dist;
+                        target = s;
+                    }
+                });
+
+                if (target && Math.sin(d.timer * 10) > 0.6) {
+                    d.laser.material.opacity = 1;
+                    d.laser.material.color.set(0x00ffff);
+                    d.laser.geometry.setFromPoints([d.mesh.position, target.group.position]);
+
+                    target.hp -= 0.5 * d.multiplier * delta * 60;
+                    if (target.hp <= 0) {
+                        if (typeof createExplosion === 'function') createExplosion(target.group.position);
+                        scene.remove(target.group);
+                        settlements.splice(settlements.indexOf(target), 1);
+                        state.energy += 5000;
+                        createToast("SETTLEMENT DESTROYED: +5000 NRG");
+                    }
+                } else if (Math.sin(d.timer * 8) > 0.5) {
+                    // Normal Harvesting
+                    d.laser.material.opacity = 0.5;
+                    d.laser.material.color.set(0xff00ff);
+                    d.laser.geometry.setFromPoints([d.mesh.position, core.position]);
                 } else {
                     d.laser.material.opacity = 0;
                 }
-            });
+
+                // AI Retaliation
+                settlements.forEach(s => {
+                    if (s.group.position.distanceTo(d.mesh.position) < 40 && Math.random() < 0.01) {
+                        // Enemy fires at drone
+                        const enemyLaserGeo = new THREE.BufferGeometry().setFromPoints([s.group.position, d.mesh.position]);
+                        const enemyLaser = new THREE.Line(enemyLaserGeo, new THREE.LineBasicMaterial({color: 0xff0000}));
+                        scene.add(enemyLaser);
+                        setTimeout(() => scene.remove(enemyLaser), 100);
+
+                        if (d.type !== 'vip') {
+                            d.hp -= 10;
+                            if (d.hp <= 0) {
+                                if (typeof createExplosion === 'function') createExplosion(d.mesh.position);
+                                scene.remove(d.mesh);
+                                scene.remove(d.laser);
+                                state.drones.splice(i, 1);
+                                createToast("DRONE DESTROYED!");
+                            }
+                        }
+                    }
+                });
+            }
 
             // Particles update
             if(particles.visible) {
