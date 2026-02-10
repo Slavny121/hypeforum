@@ -1,0 +1,140 @@
+        function animate() {
+            requestAnimationFrame(animate);
+            if (isPaused) return;
+            if (activeDrone) updateDroneMenuPos();
+            const delta = clock.getDelta() * state.playSpeed;
+            const time = clock.getElapsedTime();
+
+            updateWeather(delta);
+
+            if (traderDrone) {
+                traderDrone.timer += delta;
+                traderDrone.mesh.position.y = 15 + Math.sin(traderDrone.timer) * 5;
+                traderDrone.mesh.rotation.y += 0.02;
+                if (traderDrone.timer > 300) {
+                    scene.remove(traderDrone.mesh);
+                    traderDrone = null;
+                }
+            }
+
+            // Camera Controls
+            if(!isSkillMode) {
+                const altitudeScale = Math.max(1, camera.position.y / 15);
+                const moveSpeed = (state.turboActive ? 1.2 : 0.6) * altitudeScale;
+                const move = new THREE.Vector3();
+
+                // Horizontal Move
+                const forward = new THREE.Vector3(0, 0, -1).applyQuaternion(camera.quaternion);
+                forward.y = 0; forward.normalize();
+                const right = new THREE.Vector3(1, 0, 0).applyQuaternion(camera.quaternion);
+                right.y = 0; right.normalize();
+
+                if(keys['KeyW']) move.add(forward.multiplyScalar(moveSpeed));
+                if(keys['KeyS']) move.add(forward.multiplyScalar(-moveSpeed));
+                if(keys['KeyA']) move.add(right.multiplyScalar(-moveSpeed));
+                if(keys['KeyD']) move.add(right.multiplyScalar(moveSpeed));
+
+                // Jetpack & Vertical
+                if (state.jetpack.active) {
+                    state.jetpack.fuel -= delta;
+                    if (keys['Space']) move.y += moveSpeed;
+                    if (keys['ControlLeft']) move.y -= moveSpeed;
+
+                    if (state.jetpack.fuel <= 0) {
+                        state.jetpack.active = false;
+                        state.jetpack.fuel = 0;
+                        state.jetpack.cooldown = 30;
+                        createToast("JETPACK EMPTY - RECHARGING");
+                    }
+                } else {
+                    if (state.jetpack.cooldown > 0) {
+                        state.jetpack.cooldown -= delta;
+                        if (state.jetpack.cooldown <= 0) {
+                            state.jetpack.fuel = state.jetpack.maxFuel;
+                            createToast("JETPACK READY");
+                        }
+                    } else if (state.jetpack.fuel < state.jetpack.maxFuel) {
+                        state.jetpack.fuel = state.jetpack.maxFuel;
+                    }
+
+                    // Normal vertical movement (if not in FP mode?)
+                    // User said: "на пробел я могуподниматся вверх а на контрл левый вниз"
+                    // This was listed under Jetpack section. So maybe only with Jetpack?
+                    // But I already had Space/Shift for normal movement.
+                    // I'll keep Space/Shift for non-jetpack and Space/Ctrl for jetpack as requested.
+                    if (!document.pointerLockElement) {
+                         if(keys['Space']) move.y += moveSpeed;
+                         if(keys['ShiftLeft']) move.y -= moveSpeed;
+                    }
+                }
+
+                camera.position.add(move);
+
+                // Boundaries
+                camera.position.x = THREE.MathUtils.clamp(camera.position.x, -250, 250);
+                camera.position.z = THREE.MathUtils.clamp(camera.position.z, -250, 250);
+                camera.position.y = THREE.MathUtils.clamp(camera.position.y, 1.5, 120);
+
+                if (state.turboActive) {
+                    camera.position.x += (Math.random() - 0.5) * 0.2;
+                    camera.position.y += (Math.random() - 0.5) * 0.2;
+                }
+            }
+
+            // Core Animation & Morphing (BPM Sync: 120 BPM = 2 beats per second)
+            core.rotation.y += state.turboActive ? 0.05 : 0.005;
+            core.rotation.z += 0.002;
+            core.children[0].rotation.y -= 0.01; // Outer ring reverse
+
+            const bpm = 120;
+            const beat = (time * (bpm / 60)) % 1;
+            const beatFactor = Math.pow(1 - beat, 4); // Sharp pulse
+
+            const energyFactor = state.energy / state.storageMax;
+            const targetScale = 1 + beatFactor * 0.2 + energyFactor * 0.5;
+            core.scale.lerp(new THREE.Vector3(targetScale, targetScale, targetScale), 0.2);
+            core.children[0].material.emissiveIntensity = 0.5 + Math.sin(time*2) * 0.3 + energyFactor;
+
+            // Blackout & Lighting Logic
+            const amb = scene.getObjectByName("AMBIENT");
+            const mainL = scene.getObjectByName("MAIN_LIGHT");
+            const emerL = scene.getObjectByName("EMERGENCY_LIGHT");
+
+            if (state.energy < state.storageMax * 0.1) {
+                amb.intensity = 0.05;
+                mainL.intensity = 0.2;
+                emerL.intensity = 1 + Math.sin(time * 10) * 0.5; // Pulsing Red
+            } else {
+                amb.intensity = 0.2;
+                mainL.intensity = 2;
+                emerL.intensity = 0;
+            }
+
+            // Overload Visuals (Sparks)
+            if (state.energy > state.storageMax) {
+                if (Math.random() > 0.8) {
+                    const spark = new THREE.Mesh(new THREE.SphereGeometry(0.1), new THREE.MeshBasicMaterial({color: 0xffffff}));
+                    spark.position.set(15 + (Math.random()-0.5)*5, 12, (Math.random()-0.5)*5);
+                    scene.add(spark);
+                    setTimeout(() => scene.remove(spark), 100);
+                }
+            }
+
+            // Cables Glowing
+            state.storageModules.forEach(m => {
+                if(m.cable) {
+                    m.cable.material.emissiveIntensity = 0.5 + Math.sin(time * 3) * 0.2 + (state.energy / state.storageMax);
+                }
+            });
+
+            // Drones Logic
+            for (let i = state.drones.length - 1; i >= 0; i--) {
+                const d = state.drones[i];
+                d.timer += delta * d.speed;
+
+                // Movement
+                d.mesh.position.y = 8 + Math.sin(d.timer * 2) * 3;
+                d.mesh.position.x = Math.cos(d.timer) * 20 - 15;
+                d.mesh.position.z = Math.sin(d.timer) * 15;
+
+                // Animation

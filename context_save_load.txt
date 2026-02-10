@@ -1,0 +1,121 @@
+        async function saveGameState() {
+            if (!state.isLoaded) return;
+            const user = firebase.auth().currentUser;
+            if (!user) return;
+            try {
+                // Sync drone data before saving
+                state.dronesData = state.drones.map(d => ({
+                    type: d.type || 'basic',
+                    id: d.mesh.name,
+                    hp: d.hp
+                }));
+
+                await db.collection("users").doc(user.uid).set({
+                    energy: state.energy,
+                    xp: state.xp,
+                    level: state.level,
+                    inventory: state.inventory,
+                    costs: state.costs,
+                    storageMax: state.storageMax,
+                    clickPower: state.clickPower,
+                    profile: state.profile,
+                    heat: state.heat,
+                    expeditions: state.expeditions,
+                    matter: state.matter,
+                    antimatter: state.antimatter,
+                    achievements: state.achievements,
+                    dronesData: state.dronesData,
+                    isVIP: state.isVIP,
+                    lastSeen: firebase.firestore.FieldValue.serverTimestamp()
+                }, { merge: true });
+                console.log("Acis Sync Complete: " + state.profile.uid);
+            } catch (e) { console.error("Sync Error", e); }
+        }
+
+        function generateUID() {
+            const chars = '0123456789ABCDEF';
+            let res = '';
+            for(let i=0; i<8; i++) res += chars[Math.floor(Math.random()*chars.length)];
+            return res;
+        }
+
+        function isLuckyUID(uid) {
+            const counts = {};
+            for(const c of uid) counts[c] = (counts[c] || 0) + 1;
+            return Object.values(counts).some(v => v >= 4) || / (0123|1234|4321|ABCD|1111|7777) /.test(uid);
+        }
+
+        async function loadGameState() {
+            const user = firebase.auth().currentUser;
+            if (!user) return;
+            try {
+                // Clear existing drones
+                state.drones.forEach(d => {
+                    scene.remove(d.mesh);
+                    if (d.laser) scene.remove(d.laser);
+                });
+                state.drones = [];
+
+                const doc = await db.collection("users").doc(user.uid).get();
+                if (doc.exists) {
+                    const data = doc.data();
+                    state.energy = data.energy || 0;
+                    state.xp = data.xp || 0;
+                    state.level = data.level || 1;
+                    state.inventory = data.inventory || data.items || [];
+                    state.costs = data.costs || state.costs;
+                    state.storageMax = data.storageMax || state.storageMax;
+                    state.clickPower = data.clickPower || state.clickPower;
+                    state.profile = data.profile || state.profile;
+                    state.heat = data.heat || 0;
+                    state.expeditions = data.expeditions || [];
+                    state.matter = data.matter || 0;
+                    state.antimatter = data.antimatter || 0;
+                    state.achievements = data.achievements || [];
+                    state.dronesData = data.dronesData || [];
+                    state.isVIP = data.isVIP || false;
+
+                    // Ensure UID exists
+                    if (!state.profile.uid || state.profile.uid === "00000000") {
+                        state.profile.uid = generateUID();
+                        state.profile.lucky = isLuckyUID(state.profile.uid);
+                    }
+
+                    // Restore Drones
+                    if (state.drones.length === 0 && state.dronesData.length > 0) {
+                        state.dronesData.forEach(d => {
+                            spawnDrone(d.type);
+                            // Set HP for the last spawned drone
+                            const active = state.drones[state.drones.length - 1];
+                            if (active && d.hp !== undefined) active.hp = d.hp;
+                        });
+                    }
+
+                    // Sync UI
+                    document.getElementById('profile-name-span').innerText = state.profile.name;
+                    document.getElementById('profile-avatar-img').src = state.profile.avatar;
+                    document.getElementById('modal-avatar-img').src = state.profile.avatar;
+                    document.getElementById('display-id').innerText = state.profile.uid;
+
+                    updateUI();
+                    createToast("NEURAL SYNC COMPLETE");
+                } else {
+                    console.log("New neural profile initialized.");
+                    state.profile.uid = generateUID();
+                    state.profile.lucky = isLuckyUID(state.profile.uid);
+                    state.isLoaded = true;
+                    await saveGameState();
+                }
+                state.isLoaded = true;
+            } catch (e) { console.error("Load Error", e); }
+        }
+
+        // --- ENGINE ---
+        const GAME_VERSION = "5.0.0";
+        let scene, camera, renderer, raycaster, mouse, clock;
+        let settlements = [];
+        let core, mainTankLiquid, skillGroup, moduleGroup, particles;
+        let worldGroup, roomGroup, galaxyGroup;
+        let isSkillMode = false, keys = {}, isRightMB = false;
+        let lastCameraState = { pos: new THREE.Vector3(), quat: new THREE.Quaternion(), look: new THREE.Euler() };
+        let lookRotation = new THREE.Euler(0, 0, 0, 'YXZ');

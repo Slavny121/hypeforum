@@ -5,127 +5,35 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Acis System</title>
     <link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@400;700&display=swap" rel="stylesheet">
-    <style>
-        body { margin: 0; overflow: hidden; background: #050505; font-family: 'Orbitron', sans-serif; color: #fff; user-select: none; }
-        #ui-layer { position: absolute; top: 0; left: 0; width: 100%; height: 100%; pointer-events: none; z-index: 10; }
-        
-        .stats { 
-            position: absolute; top: 15px; left: 15px; pointer-events: auto;
-            background: rgba(10, 10, 15, 0.85); padding: 12px; border-left: 3px solid #8800ff;
-            backdrop-filter: blur(25px); border-radius: 0 10px 10px 0;
-            box-shadow: 0 0 30px rgba(136, 0, 255, 0.2);
-            transform: scale(0.75); transform-origin: top left;
-            -webkit-font-smoothing: antialiased;
-            text-rendering: optimizeLegibility;
-        }
-        #energy-display {
-            font-size: 1.8rem; color: #fff;
-            text-shadow: 0 0 15px rgba(136, 0, 255, 0.8);
-            transition: transform 0.1s ease;
-        }
-        .pulse-active { animation: pulse-energy 0.15s ease-out; }
-        @keyframes pulse-energy {
-            0% { transform: scale(1); text-shadow: 0 0 20px #0ff; }
-            50% { transform: scale(1.1); text-shadow: 0 0 40px #0ff, 0 0 60px #fff; }
-            100% { transform: scale(1); }
-        }
-        #sp-display { font-size: 1.2rem; color: #8800ff; margin-top: 5px; opacity: 0.9; }
-        #storage-bar { width: 100%; height: 8px; background: #111; margin-top: 15px; position: relative; border-radius: 4px; overflow: hidden; }
-        #storage-fill { height: 100%; background: linear-gradient(90deg, #8800ff, #00ffff); width: 0%; transition: width 0.4s cubic-bezier(0.17, 0.67, 0.83, 0.67); }
-
-        .market-info { margin-top: 15px; font-size: 0.85rem; color: #ffd700; border-top: 1px dashed #0ff4; padding-top: 10px; }
-
-        /* Окна меню */
-        .overlay { 
-            position: absolute; top: 0; left: 0; width: 100%; height: 100%;
-            background: radial-gradient(circle, rgba(0, 20, 40, 0.8) 0%, rgba(0, 0, 0, 0.95) 100%); 
-            display: none; pointer-events: auto; flex-direction: column; align-items: center; justify-content: center; z-index: 1000;
-        }
-        #auth-overlay {
-            background: #000;
-            display: flex;
-            transition: opacity 1s ease-in-out;
-        }
-        .holo-auth {
-            background: rgba(0, 20, 40, 0.4);
-            border: 1px solid #0ff;
-            padding: 40px;
-            border-radius: 20px;
-            box-shadow: 0 0 50px rgba(0, 255, 255, 0.2), inset 0 0 20px rgba(0, 255, 255, 0.1);
-            backdrop-filter: blur(15px);
-            position: relative;
-            overflow: hidden;
-            animation: holo-flicker 4s infinite;
-        }
-        @keyframes holo-flicker {
-            0%, 100% { opacity: 1; transform: scale(1); }
-            5% { opacity: 0.95; transform: scale(1.002); }
-            10% { opacity: 1; transform: scale(1); }
-            70% { opacity: 0.98; }
-        }
-        .holo-line {
-            position: absolute; width: 100%; height: 2px; background: rgba(0, 255, 255, 0.2);
-            top: 0; left: 0; animation: holo-scan 3s linear infinite;
-        }
-        @keyframes holo-scan { 0% { top: 0; } 100% { top: 100%; } }
-        #ui-layer { transition: 0.8s cubic-bezier(0.16, 1, 0.3, 1); }
-        .ui-tilt { transform: perspective(2000px) rotateX(2deg) translateY(5px) scale(1); opacity: 0.9; pointer-events: none; }
-        .menu-window { 
-            background: #000a14; border: 1px solid #0ff; padding: 40px; 
-            width: 85%; max-width: 900px; max-height: 85vh; overflow-y: auto;
-            box-shadow: 0 0 100px rgba(0, 255, 255, 0.15); border-radius: 20px;
-            position: relative;
-        }
-        
-        .grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(250px, 1fr)); gap: 20px; margin-top: 25px; }
-        .card { 
-            background: linear-gradient(145deg, rgba(255,255,255,0.03), rgba(0,255,255,0.05)); 
-            border: 1px solid #0ff3; padding: 20px; border-radius: 12px; transition: 0.3s; cursor: pointer;
-            position: relative; overflow: hidden;
-        }
-        .card:hover { border-color: #0ff; transform: scale(1.02); background: rgba(0, 255, 255, 0.1); }
-        .card button { 
-            width: 100%; background: #0ff; border: none; color: #000; padding: 12px; 
-            font-family: 'Orbitron'; font-weight: bold; cursor: pointer; border-radius: 6px; 
-            transition: 0.2s; margin-top: 10px;
-        }
-        .card button:hover { background: #fff; box-shadow: 0 0 20px #0ff; }
-
-        .inv-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(140px, 1fr)); gap: 12px; }
-        .inv-item { 
-            background: rgba(0, 40, 80, 0.3); border: 1px solid #0ff2; padding: 15px; 
-            text-align: center; border-radius: 10px; transition: 0.3s;
-        }
-        .inv-item:hover { background: rgba(0, 255, 255, 0.1); }
-
-        #warning-label { 
-            color: #ff0055; font-size: 1.5rem; font-weight: bold; position: absolute; 
-            top: 40px; right: 40px; display: none; text-shadow: 0 0 10px #f05; 
-            animation: pulse-danger 0.5s infinite alternate;
-        }
-        @keyframes pulse-danger { from { opacity: 0.4; transform: scale(0.9); } to { opacity: 1; transform: scale(1.1); } }
-
-        .loot-pop {
-            position: absolute; color: #0ff; font-weight: bold; pointer-events: none;
-            animation: float-up 1s forwards; text-shadow: 0 0 10px #0ff;
-        }
-        @keyframes float-up { to { transform: translateY(-100px); opacity: 0; } }
-
-        .hud-hint { 
-            position: absolute; bottom: 80px; left: 50%; transform: translateX(-50%);
-            font-size: 0.85rem; opacity: 0.5; pointer-events: none; text-align: center; line-height: 1.6;
-        }
-        canvas { display: block; }
-        #transition-overlay {
-            position: fixed; top: 0; left: 0; width: 100%; height: 100%;
-            background: #000; z-index: 9999; display: none; pointer-events: none;
-        }
-    </style>
+    <link rel="stylesheet" href="style.css">
 </head>
 <body>
     <div id="transition-overlay"></div>
 
     <div id="ui-layer">
+        <div class="hud-header" id="header">
+            <p style="color: #0ff; margin: 0; font-size: 0.7rem; letter-spacing: 5px;">COMMAND_CENTER</p>
+            <h1>ACIS_CORE</h1>
+        </div>
+
+        <div id="info-panel">
+            <div class="scanline"></div>
+            <div style="margin-bottom: 25px; border-bottom: 1px solid rgba(255,255,255,0.05); padding-bottom: 15px;">
+                <span style="font-size: 0.6rem; color: #0ff; letter-spacing: 4px; text-transform: uppercase; display: block; margin-bottom: 10px;">Sector Identifier</span>
+                <span style="font-size: 1.5rem; font-weight: 700; letter-spacing: 2px; color: #fff;" id="ui-name">CORE_ZONE</span>
+            </div>
+            <div style="margin-bottom: 25px; border-bottom: 1px solid rgba(255,255,255,0.05); padding-bottom: 15px;">
+                <span style="font-size: 0.6rem; color: #0ff; letter-spacing: 4px; text-transform: uppercase; display: block; margin-bottom: 10px;">Mission Briefing</span>
+                <p style="font-size: 0.85rem; color: #ccc; margin: 10px 0; line-height: 1.6;" id="ui-desc">Neural interface stable. Harvesting operations in progress.</p>
+            </div>
+            <span style="font-size: 0.6rem; color: #0ff; letter-spacing: 4px; text-transform: uppercase; display: block; margin-bottom: 10px;">Potential Gains</span>
+            <div class="rewards-container">
+                <div class="reward-item"><span>UNIT_EXP</span><div id="rew-xp">+10 XP</div></div>
+                <div class="reward-item"><span>NRG_FLOW</span><div id="rew-cr">5.0</div></div>
+            </div>
+            <button onclick="toggleInfoPanel()" style="width: 100%; background: #0ff; border: none; color: #000; padding: 18px; margin-top: 30px; font-family: 'Orbitron'; font-weight: 900; cursor: pointer; letter-spacing: 4px; transition: 0.3s;">ACKNOWLEDGE</button>
+        </div>
+
         <div id="profile-btn" onclick="toggleProfile()" style="position: absolute; top: 20px; right: 20px; pointer-events: auto; background: rgba(0, 10, 20, 0.85); padding: 10px 20px; border-radius: 40px; border: 1px solid #0ff3; display: flex; align-items: center; cursor: pointer; backdrop-filter: blur(10px); transition: 0.3s; z-index:100;">
             <img id="profile-avatar-img" src="https://via.placeholder.com/150" style="width: 40px; height: 40px; border-radius: 50%; border: 2px solid #0ff; margin-right: 15px;">
             <span id="profile-name-span" style="font-size: 0.9rem; color: #fff; font-weight: bold; margin-right: 10px;">Player</span>
@@ -167,7 +75,6 @@
         <div id="speed-controls" style="position:absolute; bottom:20px; left:20px; pointer-events:auto; display:flex; gap:5px; background:rgba(0,0,0,0.8); padding:5px; border-radius:5px; border:1px solid #0ff2;">
             <button onclick="setGameSpeed(0.5)" style="background:none; border:1px solid #0ff4; color:#0ff; font-size:0.5rem; cursor:pointer; padding:5px;">x0.5</button>
             <button onclick="setGameSpeed(1)" style="background:none; border:1px solid #0ff; color:#0ff; font-size:0.5rem; cursor:pointer; padding:5px;">x1</button>
-            <button onclick="setGameSpeed(1.5)" style="background:none; border:1px solid #0ff4; color:#0ff; font-size:0.5rem; cursor:pointer; padding:5px;">x1.5</button>
             <button id="pause-btn" onclick="togglePause()" style="background:#f00; border:none; color:#fff; font-size:0.5rem; cursor:pointer; padding:5px; min-width:50px;">STOP</button>
         </div>
 
@@ -248,100 +155,76 @@
             </div>
         </div>
 
-        <!-- PROFILE MODAL -->
-        <div id="profile-overlay" class="overlay">
-            <div class="menu-window" style="max-width: 1000px; height: 80vh; display: flex; flex-direction: column;">
-                <div style="display: flex; border-bottom: 1px solid #0ff3; padding-bottom: 20px; margin-bottom: 20px;">
-                    <div style="flex: 1;">
-                        <h2 style="color:#0ff; margin:0;">Neural Interface</h2>
-                        <small style="color:#0ff8;">Syncing with gaeeeee1.firebase...</small>
+        <!-- NEURAL HUB [Q] -->
+        <div id="profile-overlay" class="overlay" style="background: rgba(0,0,0,0.4); backdrop-filter: none;">
+            <div id="q-canvas-container" style="position: absolute; inset: 0; z-index: -1;"></div>
+
+            <div id="ui-wrapper" style="opacity: 1; pointer-events: auto; display: flex; width: 100%; height: 100%; justify-content: space-between; align-items: center; padding: 60px; box-sizing: border-box;">
+                <!-- PROFILE -->
+                <div class="profile-section">
+                    <div class="commander-card">
+                        <div class="avatar-box">
+                            <div class="scanner-ring"></div>
+                            <div id="q-avatar-img" class="avatar-img" style="background-size: cover;"></div>
+                        </div>
+                        <div id="q-nick-display" style="font-family: 'Orbitron'; font-weight: 900; font-size: 1.5rem;" class="glitch-text">ACIS_COMMANDER</div>
+                        <div id="q-rank-display" style="font-size: 0.7rem; color: var(--cyan); letter-spacing: 3px; margin-top: 5px;">RANK: SYSTEM_OVERLORD</div>
+
+                        <div style="margin-top: 30px;">
+                            <div style="display:flex; justify-content:space-between; font-size: 0.6rem; margin-bottom: 5px;">
+                                <span>NEURAL_SYNC</span>
+                                <span id="sync-val">98%</span>
+                            </div>
+                            <div style="height: 2px; background: rgba(255,255,255,0.1);">
+                                <div id="sync-bar" style="width: 98%; height: 100%; background: var(--cyan); box-shadow: 0 0 10px var(--cyan);"></div>
+                            </div>
+                        </div>
+
+                        <div id="q-stats-info" style="margin-top: 20px; font-size: 0.65rem; color: rgba(255,255,255,0.5); line-height: 1.6;">
+                            > СТАТУС: ОНЛАЙН<br>
+                            > МЕСТОПОЛОЖЕНИЕ: CORE_BASE<br>
+                            > ВНИМАНИЕ: СИСТЕМА СТАБИЛЬНА
+                        </div>
+
+                        <div style="margin-top: 20px; display: flex; flex-direction: column; gap: 10px;">
+                            <button onclick="linkAccount()" id="link-btn-q" style="background: none; border: 1px solid var(--cyan); color: var(--cyan); padding: 5px; font-family: 'Orbitron'; font-size: 0.5rem; cursor: pointer; display: none;">LINK_ACCOUNT</button>
+                            <button onclick="toggleMenu('profile')" style="background: none; border: 1px solid var(--magenta); color: var(--magenta); padding: 5px; font-family: 'Orbitron'; font-size: 0.5rem; cursor: pointer;">EXIT_HUB</button>
+                        </div>
                     </div>
-                    <button onclick="toggleProfile()" style="background:none; border:1px solid #0ff; color:#0ff; padding:10px 20px; border-radius:4px; cursor:pointer; font-family:'Orbitron';">EXIT</button>
+
+                    <div class="commander-card" style="padding: 15px; border-left-color: var(--magenta);">
+                        <div style="font-size: 0.6rem; color: var(--magenta);">RECENT_LOGS</div>
+                        <div id="q-logs" style="font-size: 0.55rem; color: #888; margin-top: 10px;">
+                            > Link established...<br>
+                            > Data synced...
+                        </div>
+                    </div>
                 </div>
 
-                <div style="display: flex; flex: 1; gap: 30px; overflow: hidden;">
-                    <div style="width: 250px; border-right: 1px solid #0ff2; padding-right: 20px; overflow-y: auto;">
-                        <img id="modal-avatar-img" src="https://via.placeholder.com/150" style="width: 120px; height: 120px; border-radius: 50%; border: 3px solid #0ff; display: block; margin: 0 auto 20px; object-fit: cover; box-shadow: 0 0 20px #0ff4;">
-
-                        <div style="margin-bottom: 20px;">
-                            <label style="font-size: 0.6rem; color: #0ff; display: block; margin-bottom: 5px;">DEFAULT AVATARS</label>
-                            <div style="display: grid; grid-template-columns: repeat(5, 1fr); gap: 5px;">
-                                <img src="https://robohash.org/1?set=set4" onclick="setAvatar(this.src)" style="width:100%; border-radius:4px; cursor:pointer; border:1px solid #0ff2;">
-                                <img src="https://robohash.org/2?set=set4" onclick="setAvatar(this.src)" style="width:100%; border-radius:4px; cursor:pointer; border:1px solid #0ff2;">
-                                <img src="https://robohash.org/3?set=set4" onclick="setAvatar(this.src)" style="width:100%; border-radius:4px; cursor:pointer; border:1px solid #0ff2;">
-                                <img src="https://robohash.org/4?set=set4" onclick="setAvatar(this.src)" style="width:100%; border-radius:4px; cursor:pointer; border:1px solid #0ff2;">
-                                <img src="https://robohash.org/5?set=set4" onclick="setAvatar(this.src)" style="width:100%; border-radius:4px; cursor:pointer; border:1px solid #0ff2;">
-                            </div>
-                        </div>
-
-                        <input type="text" id="nick-input" placeholder="Nickname" style="width:100%; background:#111; border:1px solid #0ff4; color:#fff; padding:10px; border-radius:4px; margin-bottom:10px; font-family:'Orbitron'; font-size: 0.8rem;">
-                        <input type="text" id="avatar-input" placeholder="Custom Avatar URL" style="width:100%; background:#111; border:1px solid #0ff4; color:#fff; padding:10px; border-radius:4px; margin-bottom:10px; font-family:'Orbitron'; font-size: 0.8rem;">
-                        <input type="file" id="avatar-file" style="display:none" onchange="uploadAvatar(this)">
-                        <button onclick="document.getElementById('avatar-file').click()" style="width:100%; background:none; border:1px solid #0ff4; color:#0ff4; padding:5px; border-radius:4px; margin-bottom:20px; font-size:0.6rem; cursor:pointer;">UPLOAD LOCAL FILE</button>
-                        <button onclick="updateProfile()" style="width:100%; background:#0ff; border:none; color:#000; padding:12px; font-weight:bold; cursor:pointer; border-radius:4px; font-family:'Orbitron'; transition: 0.2s;">APPLY CHANGES</button>
-
-                        <div style="margin-top: 30px; padding-top: 20px; border-top: 1px dashed #0ff2;">
-                            <h4 style="color:#f0f; margin:0 0 10px 0; font-size: 0.7rem;">System Stats</h4>
-                            <div id="stat-list" style="font-size:0.65rem; color:#aaa; line-height:1.6;">
-                                ID: <span id="display-id" style="color:#0ff"></span><br>
-                                SESSION: <span id="session-time" style="color:#0ff">0m</span>
-                            </div>
-                        </div>
+                <!-- INVENTORY -->
+                <div class="inventory-section">
+                    <div class="inv-header" id="inv-header-q">CARGO_HOLD [0/16]</div>
+                    <div class="grid-container" id="inv-grid-q">
+                        <!-- Slots generated via JS -->
                     </div>
+                </div>
 
-                    <div style="flex: 1; display: flex; flex-direction: column;">
-                        <div style="display: flex; gap: 10px; margin-bottom: 20px;">
-                            <button id="tab-btn-inv" onclick="showTab('inv')" class="tab-btn active">CARGO</button>
-                            <button id="tab-btn-exp" onclick="showTab('exp')" class="tab-btn">EXPEDITIONS</button>
-                            <button id="tab-btn-skills" onclick="showTab('skills')" class="tab-btn">EVOLUTION</button>
-                            <button id="tab-btn-contracts" onclick="showTab('contracts')" class="tab-btn">CONTRACTS</button>
-                            <button id="tab-btn-asc" onclick="showTab('ascension')" class="tab-btn">ASCENSION</button>
-                        </div>
-                        <div id="content-inv" class="tab-content" style="flex: 1; overflow-y: auto;"><div id="inventory-grid" class="inv-grid"></div></div>
-                        <div id="content-exp" class="tab-content" style="flex: 1; display: none; overflow-y: auto;">
-                            <h3 style="color:#0ff; margin-top:0;">DRONE MISSIONS</h3>
-                            <div id="exp-list" style="display:grid; gap:10px;">
-                                <!-- Expeditions here -->
-                            </div>
-                            <button onclick="startExpedition()" style="margin-top:20px; width:100%; padding:15px; background:#0ff; border:none; color:#000; font-weight:bold; cursor:pointer;">START NEW MISSION (1000 NRG)</button>
-                        </div>
-                        <div id="content-skills" class="tab-content" style="flex: 1; display: none; text-align: center; padding-top: 30px;">
-                            <h3 style="color:#f0f; letter-spacing: 2px;">Matter Evolution</h3>
-                            <div style="background: rgba(0, 255, 255, 0.05); padding: 20px; border: 1px solid #0ff2; border-radius: 10px; margin-bottom: 20px;">
-                                <div style="font-size: 0.8rem; color: #aaa; margin-bottom: 10px;">AVAILABLE MATTER</div>
-                                <div id="matter-val" style="font-size: 2.5rem; color: #f0f; text-shadow: 0 0 15px #f0f8;">0</div>
-                            </div>
-                            <button onclick="synthesizeMatter()" style="width: 100%; padding: 15px; background: #f0f; border: none; color: #fff; font-weight: bold; cursor: pointer; border-radius: 4px; font-family: 'Orbitron';">SYNTHESIZE MATTER (10,000 NRG)</button>
-                            <p style="color:#aaa; font-size: 0.7rem; margin-top: 15px;">Use [E] for direct neural tree access.</p>
-                        </div>
-                        <div id="content-ascension" class="tab-content" style="flex: 1; display: none; text-align: center; padding-top: 30px;">
-                            <h3 style="color:#0ff; letter-spacing: 2px;">Ascension Protocol</h3>
-                            <div style="background: rgba(0, 255, 255, 0.05); padding: 20px; border: 1px solid #0ff2; border-radius: 10px; margin-bottom: 20px;">
-                                <div style="font-size: 0.8rem; color: #aaa; margin-bottom: 10px;">ANTIMATTER COLLECTED</div>
-                                <div id="antimatter-val" style="font-size: 2.5rem; color: #0ff; text-shadow: 0 0 15px #0ff8;">0</div>
-                            </div>
-                            <p style="color:#aaa; font-size: 0.7rem; margin-bottom: 20px;">Reset all progress to harness the power of Antimatter.<br>Provides permanent x2 multiplier per unit.</p>
-                            <button onclick="ascend()" style="width: 100%; padding: 15px; background: #0ff; border: none; color: #000; font-weight: bold; cursor: pointer; border-radius: 4px; font-family: 'Orbitron';">ASCEND (Requires 1,000,000 NRG)</button>
-                        </div>
-                        <div id="content-contracts" class="tab-content" style="flex: 1; display: none; overflow-y: auto;">
-                            <h3 style="color:#0ff; margin-top:0;">Neural Contracts</h3>
-                            <div id="contract-list" style="display:grid; gap:10px;"></div>
-                        </div>
-                    </div>
+                <!-- DETAIL TOOLTIP -->
+                <div id="item-desc-q" style="position: absolute; bottom: 60px; left: 50%; transform: translateX(-50%); width: 500px; background: rgba(0,0,0,0.8); border: 1px solid var(--cyan); padding: 20px; opacity: 0; transition: 0.4s; pointer-events: none; z-index: 200;">
+                    <div id="it-type-q" style="font-size: 0.6rem; color: var(--magenta);">NULL_POINTER</div>
+                    <div id="it-name-q" style="font-family: 'Orbitron'; font-size: 1.2rem; margin: 5px 0;">OBJECT_NAME</div>
+                    <div id="it-text-q" style="font-size: 0.8rem; color: rgba(255,255,255,0.6);">Детальный анализ объекта...</div>
                 </div>
             </div>
         </div>
 
-        <style>
-            .tab-btn { background: none; border: 1px solid #0ff4; color: #0ff4; padding: 10px 25px; cursor: pointer; transition: 0.3s; font-family: 'Orbitron'; }
-            .tab-btn.active { background: #0ff2; border-color: #0ff; color: #0ff; box-shadow: 0 0 15px #0ff2; }
-            .tab-content { animation: fade-in-tab 0.3s; }
-            @keyframes fade-in-tab { from { opacity: 0; } to { opacity: 1; } }
-        </style>
+        <div class="center-hud" style="position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); text-align: center; font-family: 'Orbitron'; pointer-events: none; z-index: 5;">
+            <div class="q-prompt" style="font-size: 0.7rem; letter-spacing: 10px; color: var(--cyan); animation: pulse 2s infinite; opacity: 0.6;">[ PRESS 'Q' TO INITIALIZE NEURAL LINK ]</div>
+        </div>
 
         <div class="hud-hint">
             <b>WASD</b>: Navigation | <b>LMB</b>: Harvest Core | <b>RMB</b>: Orbit View<br>
-            [H] Terminal | [Q] Cargo | [E] Evolution Tree
+            [H] Terminal | [Q] Cargo | [T] Leveling | [E] Evolution Tree
         </div>
 
         <!-- ACHIEVEMENTS MODAL -->
@@ -355,23 +238,44 @@
             </div>
         </div>
 
-        <!-- LEVELING MODAL -->
-        <div id="level-overlay" class="overlay">
-            <div class="menu-window" style="max-width: 600px; border-color: #ffd700;">
-                <h2 style="color:#ffd700; text-align:center;">NEURAL PROGRESSION</h2>
-                <div style="text-align:center; margin: 30px 0;">
-                    <div style="font-size: 0.8rem; color: #aaa; margin-bottom: 10px;">CURRENT LEVEL</div>
-                    <div id="level-val" style="font-size: 4rem; color: #ffd700; text-shadow: 0 0 20px #ffd70088;">1</div>
-                    <div id="xp-bar-container" style="width:100%; height:15px; background:#111; border-radius:10px; margin-top:20px; overflow:hidden; border:1px solid #ffd70044;">
-                        <div id="xp-fill" style="height:100%; background:linear-gradient(90deg, #ffd700, #ff8800); width:0%;"></div>
+        <!-- GRID EXPLORER [T] -->
+        <div id="level-overlay" class="overlay" style="background: #020205;">
+            <div id="t-canvas-container" style="position: absolute; inset: 0; z-index: 1;"></div>
+
+            <div id="t-ui-layer" style="position: absolute; inset: 0; z-index: 100; pointer-events: none;">
+                <div class="hud-header active" style="top: 40px; left: 50px;">
+                    <p style="color: #0ff; margin: 0; font-size: 0.7rem; letter-spacing: 5px;">COMMAND_CENTER</p>
+                    <h1>GRID_EXPLORER</h1>
+                </div>
+
+                <div id="t-info-panel" style="position: absolute; right: 60px; top: 50%; transform: translateY(-50%); width: 420px; background: linear-gradient(135deg, rgba(10, 20, 40, 0.95) 0%, rgba(5, 5, 15, 0.98) 100%); border: 1px solid rgba(0, 255, 255, 0.3); border-right: 6px solid #0ff; padding: 40px; backdrop-filter: blur(30px); pointer-events: auto; opacity: 0; transition: 0.6s;">
+                    <div class="scanline"></div>
+                    <div style="margin-bottom: 25px; border-bottom: 1px solid rgba(255,255,255,0.05); padding-bottom: 15px;">
+                        <span style="font-size: 0.6rem; color: #0ff; letter-spacing: 4px; text-transform: uppercase; display: block; margin-bottom: 10px;">Location Identifier</span>
+                        <span id="t-ui-name" style="font-size: 1.5rem; font-weight: 700; letter-spacing: 2px; color: #fff;">---</span>
                     </div>
-                    <div id="xp-text" style="font-size:0.7rem; color:#ffd700; margin-top:10px;">0 / 1000 XP</div>
+                    <div style="margin-bottom: 25px; border-bottom: 1px solid rgba(255,255,255,0.05); padding-bottom: 15px;">
+                        <span style="font-size: 0.6rem; color: #0ff; letter-spacing: 4px; text-transform: uppercase; display: block; margin-bottom: 10px;">Mission Briefing</span>
+                        <p id="t-ui-desc" style="font-size: 0.85rem; color: #ccc; margin: 10px 0; line-height: 1.6;">Select a sector to analyze tactical data.</p>
+                    </div>
+                    <div style="margin-bottom: 25px; border-bottom: 1px solid rgba(255,255,255,0.05); padding-bottom: 15px;">
+                        <span style="font-size: 0.6rem; color: #0ff; letter-spacing: 4px; text-transform: uppercase; display: block; margin-bottom: 10px;">Threat Assessment</span>
+                        <span id="t-ui-diff" style="font-size: 1.5rem; font-weight: 700; letter-spacing: 2px; color: #fff;">SCANNING...</span>
+                    </div>
+                    <span style="font-size: 0.6rem; color: #0ff; letter-spacing: 4px; text-transform: uppercase; display: block; margin-bottom: 10px;">Potential Gains</span>
+                    <div class="rewards-container">
+                        <div class="reward-item"><span>UNIT_EXP</span><div id="t-rew-xp">+0</div></div>
+                        <div class="reward-item"><span>CREDITS</span><div id="t-rew-cr">0</div></div>
+                        <div class="reward-item" style="grid-column: span 2;"><span>VALUABLE_ASSETS</span><div id="t-rew-it" style="color: #0ff;">NONE</div></div>
+                    </div>
+                    <button id="t-start-btn" onclick="startSectorOperation()" style="width: 100%; background: #0ff; border: none; color: #000; padding: 18px; margin-top: 30px; font-family: 'Orbitron'; font-weight: 900; cursor: pointer; letter-spacing: 4px; transition: 0.3s;">START_OPERATION</button>
                 </div>
-                <div id="level-rewards" style="background:rgba(255,215,0,0.05); padding:20px; border-radius:10px; font-size:0.7rem;">
-                    <b>NEXT REWARDS:</b>
-                    <ul id="rewards-list" style="color:#aaa; text-align:left; margin-top:10px;"></ul>
+
+                <div style="position: absolute; bottom: 40px; left: 50%; transform: translateX(-50%); display: flex; gap: 60px; font-size: 0.75rem; color: rgba(255,255,255,0.4); letter-spacing: 3px;">
+                    <span><span style="color: #0ff; border: 1px solid #0ff; padding: 2px 8px; margin-right: 10px;">W / S</span> TRAVEL</span>
+                    <span><span style="color: #0ff; border: 1px solid #0ff; padding: 2px 8px; margin-right: 10px;">ПКМ</span> DATA_TOGGLE</span>
+                    <span><span style="color: #0ff; border: 1px solid #0ff; padding: 2px 8px; margin-right: 10px;">T</span> CLOSE</span>
                 </div>
-                <button onclick="toggleMenu('level')" style="margin-top:30px; width:100%; padding:15px; background:none; border:1px solid #333; color:#555; cursor:pointer;">CLOSE [T]</button>
             </div>
         </div>
 
@@ -379,42 +283,106 @@
         <div id="trade-overlay" class="overlay">
             <div class="menu-window" style="max-width: 900px; border-color: #0f0;">
                 <h2 style="color:#0f0; text-align:center; letter-spacing:4px;">QUANTUM EXCHANGE</h2>
-                <div id="trade-container" style="display:flex; gap:20px; margin-top:30px; min-height:300px;">
-                    <div style="flex:1; background:rgba(0,255,0,0.05); border:1px solid #0f02; padding:20px; border-radius:10px;">
-                        <h4 style="color:#0f0; margin-top:0;">YOUR OFFER</h4>
-                        <div id="my-trade-slots" class="inv-grid" style="grid-template-columns: repeat(2, 1fr);"></div>
-                        <button onclick="openTradeInv()" style="margin-top:15px; width:100%; background:#0f0; color:#000; border:none; padding:10px; cursor:pointer; font-family:'Orbitron'; font-weight:bold;">ADD ITEM</button>
+
+                <div id="trade-board" style="display: block;">
+                    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px;">
+                        <h3 style="color:#0f0; margin:0;">Active Requests</h3>
+                        <button onclick="showCreateTrade()" style="background:#0f0; color:#000; border:none; padding:10px 20px; font-weight:bold; cursor:pointer; font-family:'Orbitron';">CREATE REQUEST</button>
                     </div>
-                    <div style="display:flex; align-items:center;"><span style="font-size:2rem; color:#0f0;">&harr;</span></div>
-                    <div style="flex:1; background:rgba(0,255,0,0.05); border:1px solid #0f02; padding:20px; border-radius:10px;">
-                        <h4 style="color:#0f0; margin-top:0;">PARTNER OFFER</h4>
-                        <div id="partner-trade-slots" class="inv-grid" style="grid-template-columns: repeat(2, 1fr);"></div>
-                        <div style="margin-top:20px; text-align:center; color:#555; font-size:0.7rem;">Waiting for partner...</div>
+                    <div id="active-trades-list" style="max-height: 400px; overflow-y: auto;">
+                        <!-- Requests will be here -->
                     </div>
                 </div>
-                <div style="margin-top:30px; display:flex; gap:20px;">
-                    <button onclick="confirmTrade()" style="flex:1; padding:20px; background:#0f0; border:none; color:#000; font-weight:bold; cursor:pointer; font-family:'Orbitron';">CONFIRM EXCHANGE</button>
-                    <button onclick="toggleMenu('trade')" style="flex:1; padding:20px; background:none; border:1px solid #f00; color:#f00; cursor:pointer; font-family:'Orbitron';">CANCEL</button>
+
+                <div id="create-trade-form" style="display: none; text-align: center;">
+                    <h3 style="color:#0f0;">New Exchange Protocol</h3>
+                    <input type="text" id="trade-name-input" placeholder="Exchange Name" style="width:100%; background:#000; border:1px solid #0f04; color:#fff; padding:15px; border-radius:8px; margin-bottom:15px; font-family:'Orbitron';">
+                    <input type="number" id="trade-clicks-input" placeholder="Min Clicks Requirement" style="width:100%; background:#000; border:1px solid #0f04; color:#fff; padding:15px; border-radius:8px; margin-bottom:25px; font-family:'Orbitron';">
+                    <div style="display: flex; gap: 15px;">
+                        <button onclick="submitTradeRequest()" style="flex:1; background:#0f0; color:#000; padding:15px; font-weight:bold; cursor:pointer; border:none; border-radius:8px; font-family:'Orbitron';">INITIALIZE</button>
+                        <button onclick="hideCreateTrade()" style="flex:1; background:none; border:1px solid #f00; color:#f00; padding:15px; cursor:pointer; border-radius:8px; font-family:'Orbitron';">CANCEL</button>
+                    </div>
                 </div>
+
+                <div id="active-exchange-ui" style="display: none;">
+                    <div id="trade-container" style="display:flex; gap:20px; min-height:300px;">
+                        <div style="flex:1; background:rgba(0,255,0,0.05); border:1px solid #0f02; padding:20px; border-radius:10px;">
+                            <h4 id="my-trade-label" style="color:#0f0; margin-top:0;">YOU</h4>
+                            <div id="my-trade-slots" class="inv-grid" style="grid-template-columns: repeat(2, 1fr);"></div>
+                            <button onclick="openTradeItemSelector()" style="margin-top:15px; width:100%; background:#0f0; color:#000; border:none; padding:10px; cursor:pointer; font-family:'Orbitron'; font-weight:bold;">ADD ITEM</button>
+                            <div id="my-confirm-status" style="margin-top:10px; font-size:0.7rem; color:#aaa;">Status: Pending</div>
+                        </div>
+                        <div style="display:flex; align-items:center;"><span style="font-size:2rem; color:#0f0;">&harr;</span></div>
+                        <div style="flex:1; background:rgba(0,255,0,0.05); border:1px solid #0f02; padding:20px; border-radius:10px;">
+                            <h4 id="partner-trade-label" style="color:#0f0; margin-top:0;">PARTNER</h4>
+                            <div id="partner-trade-slots" class="inv-grid" style="grid-template-columns: repeat(2, 1fr);"></div>
+                            <div id="partner-confirm-status" style="margin-top:20px; text-align:center; color:#555; font-size:0.7rem;">Waiting...</div>
+                        </div>
+                    </div>
+                    <div style="margin-top:30px; display:flex; gap:20px;">
+                        <button id="trade-confirm-btn" onclick="confirmActiveTrade()" style="flex:1; padding:20px; background:#0f0; border:none; color:#000; font-weight:bold; cursor:pointer; font-family:'Orbitron';">CONFIRM</button>
+                        <button onclick="cancelActiveTrade()" style="flex:1; padding:20px; background:none; border:1px solid #f00; color:#f00; cursor:pointer; font-family:'Orbitron';">DECLINE</button>
+                    </div>
+                </div>
+
+                <button onclick="toggleMenu('trade')" id="trade-close-btn" style="margin-top:30px; width:100%; padding:15px; background:none; border:1px solid #333; color:#555; cursor:pointer;">CLOSE [M]</button>
             </div>
         </div>
 
         <!-- AUTH MODAL -->
+        <!-- BATTLE MODAL -->
+        <!-- STOCK MARKET MODAL -->
+        <div id="stock-market-overlay" class="overlay">
+            <div class="menu-window" style="max-width: 800px; border-color: #ffd700;">
+                <h2 style="color:#ffd700; text-align:center;">EXCHANGE TERMINAL</h2>
+                <div id="stock-graph-container" style="height: 200px; width: 100%; background: #000; border: 1px solid #ffd70033; margin-bottom: 20px;"></div>
+                <div class="grid" id="stock-list"></div>
+                <div id="stock-portfolio" style="margin-top:20px; padding:15px; background:rgba(255,215,0,0.05); border:1px solid #ffd70022; font-size:0.8rem; color:#ffd700;">
+                    Your Portfolio: <span id="portfolio-val">0</span> Units
+                </div>
+                <button onclick="toggleMenu('stock-market')" style="margin-top:30px; width:100%; padding:15px; background:none; border:1px solid #333; color:#555; cursor:pointer;">DISCONNECT</button>
+            </div>
+        </div>
+
+        <div id="battle-overlay" class="overlay">
+            <div class="menu-window" style="max-width: 600px; border-color: #f00;">
+                <h2 style="color:#f00; text-align:center;">BATTLE REPORT</h2>
+                <div id="battle-stats" style="margin: 20px 0; font-size: 0.8rem; line-height: 1.8;">
+                    <!-- Stats here -->
+                </div>
+                <button onclick="toggleMenu('battle')" style="width:100%; background:#f00; color:#fff; border:none; padding:15px; cursor:pointer; font-family:'Orbitron'; font-weight:bold;">ACKNOWLEDGE</button>
+            </div>
+        </div>
+
         <div id="auth-overlay" class="overlay">
             <div class="holo-auth" style="max-width: 400px; text-align: center;">
                 <div class="holo-line"></div>
-                <h2 style="color:#0ff; margin-bottom: 30px; letter-spacing: 4px; text-shadow: 0 0 10px #0ff;">ACIS ACCESS</h2>
-                <div style="margin-bottom: 20px; text-align: left;">
+                <h2 style="color:#0ff; margin-bottom: 20px; letter-spacing: 4px; text-shadow: 0 0 10px #0ff;">ACIS ACCESS</h2>
+
+                <div id="auth-selection" style="margin-bottom: 20px;">
+                    <button onclick="toggleAuthMode('login')" id="btn-mode-login" style="background:none; border:none; color:#0ff; cursor:pointer; font-family:'Orbitron'; font-size:0.7rem; border-bottom: 2px solid #0ff;">LOGIN</button>
+                    <button onclick="toggleAuthMode('reg')" id="btn-mode-reg" style="background:none; border:none; color:#0ff4; cursor:pointer; font-family:'Orbitron'; font-size:0.7rem; margin-left:20px;">REGISTER</button>
+                </div>
+
+                <div id="auth-inputs" style="margin-bottom: 20px; text-align: left;">
                     <label style="font-size: 0.6rem; color: #0ff; display: block; margin-bottom: 8px; opacity: 0.8;">NEURAL IDENTIFIER</label>
                     <input type="email" id="auth-email" placeholder="Email Address" style="width:100%; background:rgba(0,0,0,0.5); border:1px solid #0ff4; color:#fff; padding:14px; border-radius:8px; margin-bottom:12px; font-family:'Orbitron'; font-size: 0.8rem; outline: none; transition: 0.3s;">
                     <input type="password" id="auth-pass" placeholder="Password Key" style="width:100%; background:rgba(0,0,0,0.5); border:1px solid #0ff4; color:#fff; padding:14px; border-radius:8px; margin-bottom:24px; font-family:'Orbitron'; font-size: 0.8rem; outline: none; transition: 0.3s;">
                 </div>
                 
-                <button id="auth-main-btn" onclick="loginWithEmail()" style="width:100%; background:#0ff; border:none; color:#000; padding:16px; font-weight:bold; cursor:pointer; border-radius:8px; font-family:'Orbitron'; margin-bottom:16px; transition: 0.3s; letter-spacing: 1px;">INITIALIZE LINK</button>
-                <div style="display: flex; gap: 12px; margin-bottom: 24px;">
-                    <button onclick="loginWithGoogle()" style="flex: 1; background:rgba(255,255,255,0.1); border:1px solid #fff3; color:#fff; padding:12px; font-weight:bold; cursor:pointer; border-radius:8px; font-family:'Orbitron'; font-size: 0.7rem; transition: 0.3s;">GOOGLE</button>
-                    <button onclick="loginAnonymous()" style="flex: 1; background:rgba(0,255,255,0.1); border:1px solid #0ff3; color:#0ff; padding:12px; font-weight:bold; cursor:pointer; border-radius:8px; font-family:'Orbitron'; font-size: 0.7rem; transition: 0.3s;">ANONYMOUS</button>
+                <button id="auth-main-btn" onclick="handleAuthAction()" style="width:100%; background:#0ff; border:none; color:#000; padding:16px; font-weight:bold; cursor:pointer; border-radius:8px; font-family:'Orbitron'; margin-bottom:16px; transition: 0.3s; letter-spacing: 1px;">INITIALIZE LINK</button>
+
+                <div id="auth-alt-methods" style="display: flex; gap: 8px; margin-bottom: 24px;">
+                    <button onclick="loginWithGoogle()" style="flex: 1; background:rgba(255,255,255,0.1); border:1px solid #fff3; color:#fff; padding:10px 5px; font-weight:bold; cursor:pointer; border-radius:8px; font-family:'Orbitron'; font-size: 0.6rem; transition: 0.3s;">GOOGLE</button>
+                    <button onclick="loginWithGoogle()" style="flex: 1; background:rgba(255,255,255,0.1); border:1px solid #fff3; color:#fff; padding:10px 5px; font-weight:bold; cursor:pointer; border-radius:8px; font-family:'Orbitron'; font-size: 0.6rem; transition: 0.3s;">GMAIL</button>
+                    <button onclick="loginAnonymous()" style="flex: 1; background:rgba(0,255,255,0.1); border:1px solid #0ff3; color:#0ff; padding:10px 5px; font-weight:bold; cursor:pointer; border-radius:8px; font-family:'Orbitron'; font-size: 0.6rem; transition: 0.3s;">ANONYMOUS</button>
                 </div>
+
+                <div id="start-btn-container" style="display: none; margin-bottom: 24px;">
+                    <button onclick="runIntroAnimation()" style="width:100%; background:#0f0; border:none; color:#000; padding:20px; font-weight:bold; cursor:pointer; border-radius:8px; font-family:'Orbitron'; font-size: 1.2rem; box-shadow: 0 0 30px #0f08; margin-bottom: 10px;">START SYSTEM</button>
+                    <button onclick="logout()" style="width:100%; background:none; border:1px solid #f00; color:#f00; padding:10px; cursor:pointer; border-radius:8px; font-family:'Orbitron'; font-size: 0.7rem;">SWITCH ACCOUNT</button>
+                </div>
+
                 <div id="auth-error" style="color: #ff0055; font-size: 0.65rem; min-height: 1rem; text-transform: uppercase; letter-spacing: 1px;"></div>
                 <div style="margin-top: 10px; font-size: 0.5rem; color: #0ff4; letter-spacing: 2px;">V.5.0.0 SECURE CORE</div>
             </div>
@@ -449,2101 +417,7 @@
     <script src="https://www.gstatic.com/firebasejs/8.10.0/firebase-app.js"></script>
     <script src="https://www.gstatic.com/firebasejs/8.10.0/firebase-firestore.js"></script>
     <script src="https://www.gstatic.com/firebasejs/8.10.0/firebase-auth.js"></script>
-    <script>
-        // --- CONFIG ---
-        const GROQ_API_KEY = "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";
-
-        // --- FIREBASE CONFIG ---
-        const firebaseConfig = {
-            apiKey: "AIzaSyAaeCpAqIEYobZ3RhA37bndjuQBBxOSWJo",
-            authDomain: "gaeeeee1.firebaseapp.com",
-            projectId: "gaeeeee1",
-            storageBucket: "gaeeeee1.firebasestorage.app",
-            messagingSenderId: "421007464308",
-            appId: "1:421007464308:web:5d206db92c2fb578a27e21",
-            measurementId: "G-08EQMC2XG6"
-        };
-        firebase.initializeApp(firebaseConfig);
-        const db = firebase.firestore();
-
-        // --- ITEM DATABASE ---
-        const ITEMS = {
-            "Scrap": { rarity: "Common", value: 15, desc: "Recyclable metal.", type: "trash" },
-            "Crystal": { rarity: "Common", value: 60, desc: "Focuses energy.", type: "trash" },
-            "Dark Matter": { rarity: "Rare", value: 250, desc: "Strange substance.", type: "trash" },
-            "Cyber Chip": { rarity: "Rare", value: 120, desc: "Legacy tech.", type: "trash" },
-            "Ancient Tech": { rarity: "Epic", value: 1000, desc: "Mysterious component.", type: "trash" },
-            "Energy Sphere": { rarity: "Rare", value: 500, desc: "Instantly gives 5000 NRG.", type: "usable", effect: (s) => s.energy += 5000 },
-            "Overdrive Core": { rarity: "Epic", value: 2000, desc: "Permanent +10% production.", type: "usable", effect: (s) => s.multiplier += 0.1 },
-            "Basic Drone": { rarity: "Common", value: 150, desc: "Standard harvester.", type: "drone", droneType: "basic" },
-            "Mega Drone": { rarity: "Legendary", value: 5000, desc: "Deploys a Mega Drone.", type: "drone", droneType: "mega" },
-            "Fragile Drone": { rarity: "Rare", value: 1000, desc: "High power, low HP.", type: "drone", droneType: "fragile" },
-            "Tank Drone": { rarity: "Rare", value: 1500, desc: "High HP harvester.", type: "drone", droneType: "tank" },
-            "VIP Drone": { rarity: "Legendary", value: 1000000, desc: "God-tier drone.", type: "drone", droneType: "vip" },
-            "Vip Crown": { rarity: "Legendary", value: 10000, desc: "Grants VIP Status.", type: "usable", effect: (s) => s.isVIP = true }
-        };
-
-        // --- ACHIEVEMENTS DATABASE ---
-        const ACHIEVEMENTS = [
-            { id: "first_click", title: "Neural Spark", desc: "First energy harvest.", goal: 1, type: "click" },
-            { id: "rich_10k", title: "Energy Baron", desc: "Accumulate 10,000 NRG.", goal: 10000, type: "energy" },
-            { id: "drone_master", title: "Hive Mind", desc: "Deploy 20 drones.", goal: 20, type: "drones" },
-            { id: "matter_synthesizer", title: "Alchemist", desc: "Synthesize 10 Matter.", goal: 10, type: "matter" },
-            { id: "ascended_once", title: "The Chosen One", desc: "Perform your first Ascension.", goal: 1, type: "asc" },
-            { id: "lucky_id", title: "Lucky Star", desc: "Acquire a lucky UID.", goal: 1, type: "lucky" },
-            { id: "hardcore_clicker", title: "Manual Overdrive", desc: "Click 1,000 times.", goal: 1000, type: "clicks_total", reward: "Overdrive Core" },
-            { id: "vip_status", title: "Platinum VIP", desc: "Acquire VIP Status.", goal: 1, type: "isVIP" },
-            { id: "drone_army", title: "Global Legion", desc: "Own 100 active drones.", goal: 100, type: "drones" },
-            { id: "billionaire", title: "Energy Tycoon", desc: "Reach 1,000,000,000 NRG.", goal: 1000000000, type: "energy" }
-        ];
-
-        // --- DATA STATE ---
-        const state = {
-            isLoaded: false,
-            energy: 0,
-            xp: 0,
-            level: 1,
-            sp: 0,
-            storageMax: 400,
-            clickPower: 5,
-            costs: { click: 50, drone: 150, storage: 250, matter: 1000, plating: 500 },
-            inventory: [], // Renamed from items
-            achievements: [],
-            market: { "Scrap": 15, "Crystal": 60, "Dark Matter": 250, "Cyber Chip": 120 },
-            drones: [], // Live drone meshes
-            dronesData: [], // Saved drone data
-            storageModules: [],
-            pipes: [],
-            totalCapacity: 400,
-            turboActive: false,
-            lastTurbo: 0,
-            profile: { 
-                name: "Player", 
-                avatar: "https://via.placeholder.com/150",
-                uid: "00000000",
-                lucky: false
-            },
-            jetpack: { active: false, fuel: 50, cooldown: 0, maxFuel: 50 },
-            heat: 0,
-            expeditions: [],
-            multiplier: 1,
-            weather: { type: 'clear', timer: 0 },
-            matter: 0,
-            antimatter: 0,
-            isVIP: false,
-            nickColor: "#ffffff",
-            playSpeed: 1,
-            contracts: [
-                { id: 1, title: "Energy Surge", desc: "Reach 50,000 NRG", goal: 50000, reward: 5000, type: "energy", done: false },
-                { id: 2, title: "Drone Fleet", desc: "Deploy 10 Drones", goal: 10, reward: 2000, type: "drones", done: false },
-                { id: 3, title: "Matter Architect", desc: "Synthesize 5 Matter", goal: 5, reward: 15000, type: "matter", done: false },
-                { id: 4, title: "Galaxy Scout", desc: "Complete 5 Expeditions", goal: 5, reward: 8000, type: "exp", done: false }
-            ]
-        };
-
-        // --- AUTH & PERSISTENCE ---
-        function loginWithGoogle() {
-            const provider = new firebase.auth.GoogleAuthProvider();
-            firebase.auth().signInWithPopup(provider).catch(e => {
-                document.getElementById('auth-error').innerText = e.message;
-            });
-        }
-
-        function loginAnonymous() {
-            firebase.auth().signInAnonymously().catch(e => {
-                document.getElementById('auth-error').innerText = e.message;
-            });
-        }
-
-        function loginWithEmail() {
-            const email = document.getElementById('auth-email').value;
-            const pass = document.getElementById('auth-pass').value;
-            if (!email || !pass) {
-                document.getElementById('auth-error').innerText = "ENTER CREDENTIALS";
-                return;
-            }
-            firebase.auth().signInWithEmailAndPassword(email, pass).catch(e => {
-                if (e.code === 'auth/user-not-found') {
-                    return firebase.auth().createUserWithEmailAndPassword(email, pass);
-                }
-                document.getElementById('auth-error').innerText = e.message;
-            });
-        }
-
-        firebase.auth().onAuthStateChanged(user => {
-            if (user) {
-                const btn = document.getElementById('auth-main-btn');
-                if (btn) {
-                    btn.innerText = "NEURAL LINK ESTABLISHED";
-                    btn.style.background = "#0f0";
-                    btn.style.boxShadow = "0 0 20px #0f0";
-                }
-                loadGameState().then(() => {
-                    setTimeout(runIntroAnimation, 2000);
-                });
-            } else {
-                document.getElementById('auth-overlay').style.display = 'flex';
-            }
-        });
-
-        function runIntroAnimation() {
-            const overlay = document.getElementById('auth-overlay');
-            const trans = document.getElementById('transition-overlay');
-            trans.style.display = 'block';
-            trans.style.opacity = '1';
-
-            overlay.style.opacity = '0';
-            setTimeout(() => {
-                overlay.style.display = 'none';
-                if (camera) {
-                    const startPos = new THREE.Vector3(0, 1500, 1500);
-                    camera.position.copy(startPos);
-                    const targetPos = new THREE.Vector3(0, 15, 35);
-                    let progress = 0;
-                    const duration = 300; // frames
-
-                    function animateIntro() {
-                        progress++;
-                        const t = progress / duration;
-                        // Smooth easing: cubic-bezier-ish
-                        const ease = t < 0.5 ? 2 * t * t : 1 - Math.pow(-2 * t + 2, 2) / 2;
-
-                        camera.position.lerpVectors(startPos, targetPos, ease);
-                        camera.lookAt(0, 5, 0);
-
-                        // Fade out transition overlay
-                        if (progress > duration * 0.5) {
-                            trans.style.opacity = 1 - ((progress - duration * 0.5) / (duration * 0.5));
-                        }
-
-                        if (progress < duration) requestAnimationFrame(animateIntro);
-                        else {
-                            trans.style.display = 'none';
-                            createToast("ACIS SYSTEM ONLINE");
-                        }
-                    }
-                    animateIntro();
-                }
-            }, 1000);
-        }
-
-        async function saveGameState() {
-            if (!state.isLoaded) return;
-            const user = firebase.auth().currentUser;
-            if (!user) return;
-            try {
-                // Sync drone data before saving
-                state.dronesData = state.drones.map(d => ({
-                    type: d.type || 'basic',
-                    id: d.mesh.name,
-                    hp: d.hp
-                }));
-
-                await db.collection("users").doc(user.uid).set({
-                    energy: state.energy,
-                    xp: state.xp,
-                    level: state.level,
-                    inventory: state.inventory,
-                    costs: state.costs,
-                    storageMax: state.storageMax,
-                    clickPower: state.clickPower,
-                    profile: state.profile,
-                    heat: state.heat,
-                    expeditions: state.expeditions,
-                    matter: state.matter,
-                    antimatter: state.antimatter,
-                    achievements: state.achievements,
-                    dronesData: state.dronesData,
-                    isVIP: state.isVIP,
-                    lastSeen: firebase.firestore.FieldValue.serverTimestamp()
-                }, { merge: true });
-                console.log("Acis Sync Complete: " + state.profile.uid);
-            } catch (e) { console.error("Sync Error", e); }
-        }
-
-        function generateUID() {
-            const chars = '0123456789ABCDEF';
-            let res = '';
-            for(let i=0; i<8; i++) res += chars[Math.floor(Math.random()*chars.length)];
-            return res;
-        }
-
-        function isLuckyUID(uid) {
-            const counts = {};
-            for(const c of uid) counts[c] = (counts[c] || 0) + 1;
-            return Object.values(counts).some(v => v >= 4) || / (0123|1234|4321|ABCD|1111|7777) /.test(uid);
-        }
-
-        async function loadGameState() {
-            const user = firebase.auth().currentUser;
-            if (!user) return;
-            try {
-                // Clear existing drones
-                state.drones.forEach(d => {
-                    scene.remove(d.mesh);
-                    if (d.laser) scene.remove(d.laser);
-                });
-                state.drones = [];
-
-                const doc = await db.collection("users").doc(user.uid).get();
-                if (doc.exists) {
-                    const data = doc.data();
-                    state.energy = data.energy || 0;
-                    state.xp = data.xp || 0;
-                    state.level = data.level || 1;
-                    state.inventory = data.inventory || data.items || [];
-                    state.costs = data.costs || state.costs;
-                    state.storageMax = data.storageMax || state.storageMax;
-                    state.clickPower = data.clickPower || state.clickPower;
-                    state.profile = data.profile || state.profile;
-                    state.heat = data.heat || 0;
-                    state.expeditions = data.expeditions || [];
-                    state.matter = data.matter || 0;
-                    state.antimatter = data.antimatter || 0;
-                    state.achievements = data.achievements || [];
-                    state.dronesData = data.dronesData || [];
-                    state.isVIP = data.isVIP || false;
-
-                    // Ensure UID exists
-                    if (!state.profile.uid || state.profile.uid === "00000000") {
-                        state.profile.uid = generateUID();
-                        state.profile.lucky = isLuckyUID(state.profile.uid);
-                    }
-
-                    // Restore Drones
-                    if (state.drones.length === 0 && state.dronesData.length > 0) {
-                        state.dronesData.forEach(d => {
-                            spawnDrone(d.type);
-                            // Set HP for the last spawned drone
-                            const active = state.drones[state.drones.length - 1];
-                            if (active && d.hp !== undefined) active.hp = d.hp;
-                        });
-                    }
-
-                    // Sync UI
-                    document.getElementById('profile-name-span').innerText = state.profile.name;
-                    document.getElementById('profile-avatar-img').src = state.profile.avatar;
-                    document.getElementById('modal-avatar-img').src = state.profile.avatar;
-                    document.getElementById('display-id').innerText = state.profile.uid;
-
-                    updateUI();
-                    createToast("NEURAL SYNC COMPLETE");
-                } else {
-                    console.log("New neural profile initialized.");
-                    state.profile.uid = generateUID();
-                    state.profile.lucky = isLuckyUID(state.profile.uid);
-                    state.isLoaded = true;
-                    await saveGameState();
-                }
-                state.isLoaded = true;
-            } catch (e) { console.error("Load Error", e); }
-        }
-
-        // --- ENGINE ---
-        const GAME_VERSION = "5.0.0";
-        let scene, camera, renderer, raycaster, mouse, clock;
-        let settlements = [];
-        let core, mainTankLiquid, skillGroup, moduleGroup, particles;
-        let worldGroup, roomGroup, galaxyGroup;
-        let isSkillMode = false, keys = {}, isRightMB = false;
-        let lastCameraState = { pos: new THREE.Vector3(), quat: new THREE.Quaternion(), look: new THREE.Euler() };
-        let lookRotation = new THREE.Euler(0, 0, 0, 'YXZ');
-
-        function init() {
-            scene = new THREE.Scene();
-            scene.background = new THREE.Color(0x00050a);
-            scene.fog = new THREE.FogExp2(0x00050a, 0.015);
-
-            camera = new THREE.PerspectiveCamera(65, window.innerWidth / window.innerHeight, 0.1, 2000);
-            camera.position.set(0, 15, 35);
-
-            renderer = new THREE.WebGLRenderer({ antialias: true, logarithmicDepthBuffer: true, powerPreference: "high-performance" });
-            renderer.setSize(window.innerWidth, window.innerHeight);
-            renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2)); // High quality but capped
-            document.body.appendChild(renderer.domElement);
-
-            raycaster = new THREE.Raycaster();
-            mouse = new THREE.Vector2();
-            clock = new THREE.Clock();
-
-            // Lighting
-            const amb = new THREE.AmbientLight(0x4040ff, 0.2);
-            amb.name = "AMBIENT";
-            scene.add(amb);
-            
-            const pLight = new THREE.PointLight(0x00ffff, 2, 150);
-            pLight.name = "MAIN_LIGHT";
-            pLight.position.set(20, 30, 10);
-            scene.add(pLight);
-
-            const emerLight = new THREE.PointLight(0xff0000, 0, 100);
-            emerLight.name = "EMERGENCY_LIGHT";
-            emerLight.position.set(0, 20, 0);
-            scene.add(emerLight);
-
-            // 1. CORE ENGINE (Ядро)
-            const coreGeometry = new THREE.IcosahedronGeometry(4, 2);
-            const coreMaterial = new THREE.MeshStandardMaterial({ 
-                color: 0x00ffff, 
-                emissive: 0x00ffff, 
-                emissiveIntensity: 0.5,
-                wireframe: true,
-                transparent: true,
-                opacity: 0.8
-            });
-            core = new THREE.Mesh(coreGeometry, coreMaterial);
-
-            const coreOuter = new THREE.Mesh(
-                new THREE.IcosahedronGeometry(4.5, 1),
-                new THREE.MeshStandardMaterial({ color: 0xff00ff, wireframe: true, transparent: true, opacity: 0.3 })
-            );
-            core.add(coreOuter);
-            
-            const coreInner = new THREE.Mesh(
-                new THREE.SphereGeometry(2.8, 32, 32),
-                new THREE.MeshPhongMaterial({ color: 0x00ffff, emissive: 0x008888, shininess: 100 })
-            );
-            core.add(coreInner);
-            core.position.set(-15, 5, 0);
-            core.name = "CORE";
-            scene.add(core);
-
-            // 2. PRIMARY STORAGE
-            const tankRoot = new THREE.Group();
-            tankRoot.position.set(15, 0, 0);
-            scene.add(tankRoot);
-
-            const glassMat = new THREE.MeshPhysicalMaterial({ 
-                transmission: 0.3,
-                opacity: 0.4,
-                transparent: true, 
-                roughness: 0.1,
-                metalness: 0.9,
-                color: 0xccffff
-            });
-
-            const glassBase = new THREE.Mesh(new THREE.CylinderGeometry(4, 4, 12, 32, 1, true), glassMat);
-            glassBase.position.y = 6;
-            tankRoot.add(glassBase);
-
-            // Structural Caps
-            const capGeo = new THREE.CylinderGeometry(4.5, 4.5, 1, 32);
-            const capMat = new THREE.MeshStandardMaterial({ color: 0x333333, metalness: 1, roughness: 0.2 });
-            const topCap = new THREE.Mesh(capGeo, capMat);
-            topCap.position.y = 12;
-            tankRoot.add(topCap);
-            const botCap = topCap.clone();
-            botCap.position.y = 0;
-            tankRoot.add(botCap);
-
-            // Internal Rod
-            const rod = new THREE.Mesh(new THREE.CylinderGeometry(0.5, 0.5, 12, 16), new THREE.MeshStandardMaterial({color: 0x00ffff, emissive: 0x00ffff, emissiveIntensity: 2}));
-            rod.position.y = 6;
-            tankRoot.add(rod);
-
-            mainTankLiquid = new THREE.Mesh(
-                new THREE.CylinderGeometry(3.9, 3.9, 11.8, 32),
-                new THREE.MeshStandardMaterial({ 
-                    color: 0x00ffff, 
-                    emissive: 0x00ffff, 
-                    emissiveIntensity: 0.6,
-                    transparent: true, 
-                    opacity: 0.7 
-                })
-            );
-            mainTankLiquid.geometry.translate(0, 5.9, 0);
-            mainTankLiquid.scale.y = 0.01;
-            tankRoot.add(mainTankLiquid);
-
-            // 3. GROUPS
-            moduleGroup = new THREE.Group();
-            scene.add(moduleGroup);
-            skillGroup = new THREE.Group();
-            skillGroup.position.set(0, 500, 0);
-            scene.add(skillGroup);
-            createSkillTree();
-
-            // Particles for Energy Overload
-            const pCount = 200;
-            const pGeo = new THREE.BufferGeometry();
-            const pPos = new Float32Array(pCount * 3);
-            for(let i=0; i<pCount*3; i++) pPos[i] = (Math.random() - 0.5) * 10;
-            pGeo.setAttribute('position', new THREE.BufferAttribute(pPos, 3));
-            particles = new THREE.Points(pGeo, new THREE.PointsMaterial({color: 0x00ffff, size: 0.1}));
-            particles.visible = false;
-            scene.add(particles);
-
-            // World Layers
-            worldGroup = new THREE.Group();
-            scene.add(worldGroup);
-
-            roomGroup = new THREE.Group();
-            worldGroup.add(roomGroup);
-
-            galaxyGroup = new THREE.Group();
-            galaxyGroup.visible = false;
-            scene.add(galaxyGroup);
-
-            // Room Elements
-            const roomGeo = new THREE.BoxGeometry(200, 100, 200);
-            const roomMat = new THREE.MeshStandardMaterial({ color: 0x111111, side: THREE.BackSide });
-            const room = new THREE.Mesh(roomGeo, roomMat);
-            room.position.y = 49;
-            roomGroup.add(room);
-
-            // Galaxy Elements
-            const starGeo = new THREE.BufferGeometry();
-            const starPos = new Float32Array(3000 * 3);
-            for(let i=0; i<9000; i++) starPos[i] = (Math.random()-0.5) * 5000;
-            starGeo.setAttribute('position', new THREE.BufferAttribute(starPos, 3));
-            const stars = new THREE.Points(starGeo, new THREE.PointsMaterial({color:0xffffff, size: 2}));
-            galaxyGroup.add(stars);
-
-            // Move existing groups to worldGroup
-            worldGroup.add(core);
-            worldGroup.add(tankRoot);
-            worldGroup.add(moduleGroup);
-
-            // Crown
-            const crownGroup = new THREE.Group();
-            crownGroup.name = "CROWN";
-            scene.add(crownGroup);
-            if (state.antimatter > 0) {
-                const crownGeo = new THREE.TorusGeometry(1, 0.1, 16, 100);
-                const crownMat = new THREE.MeshStandardMaterial({color: 0xffd700, emissive: 0xffd700, emissiveIntensity: 2});
-                const crown = new THREE.Mesh(crownGeo, crownMat);
-                crown.rotation.x = Math.PI / 2;
-                crown.position.y = 12;
-                crownGroup.add(crown);
-                crownGroup.position.set(-15, 0, 0);
-            }
-
-            // Central Platform
-            const platformGeo = new THREE.CylinderGeometry(40, 42, 2, 6);
-            const platformMat = new THREE.MeshStandardMaterial({ color: 0x111111, roughness: 0.2, metalness: 0.8 });
-            const platform = new THREE.Mesh(platformGeo, platformMat);
-            platform.position.y = -1;
-            worldGroup.add(platform);
-            
-            const stripeGeo = new THREE.TorusGeometry(38, 0.2, 8, 6);
-            const stripeMat = new THREE.MeshStandardMaterial({ color: 0x8800ff, emissive: 0x8800ff, emissiveIntensity: 2 });
-            const stripe = new THREE.Mesh(stripeGeo, stripeMat);
-            stripe.rotation.x = Math.PI / 2;
-            stripe.position.y = 0.1;
-            platform.add(stripe);
-
-            // Grid
-            const grid = new THREE.GridHelper(500, 50, 0x004444, 0x001111);
-            grid.position.y = -0.1;
-            worldGroup.add(grid);
-
-            // Events
-            window.addEventListener('mousedown', (e) => { 
-                if(e.button === 0) checkClick(); 
-                if(e.button === 1) { // MMB Pointer Lock Toggle
-                    if (document.pointerLockElement) {
-                        document.exitPointerLock();
-                    } else {
-                        renderer.domElement.requestPointerLock();
-                    }
-                }
-                if(e.button === 2) isRightMB = true;
-            });
-            window.addEventListener('mouseup', (e) => { if(e.button === 2) isRightMB = false; });
-            window.addEventListener('mousemove', onMouseMove);
-            window.addEventListener('keydown', onKeyDown);
-            window.addEventListener('keyup', (e) => keys[e.code] = false);
-            window.addEventListener('wheel', (e) => {
-                camera.fov = Math.max(30, Math.min(90, camera.fov + e.deltaY * 0.05));
-                camera.updateProjectionMatrix();
-            });
-            window.addEventListener('resize', () => {
-                camera.aspect = window.innerWidth / window.innerHeight;
-                camera.updateProjectionMatrix();
-                renderer.setSize(window.innerWidth, window.innerHeight);
-            });
-
-            animate();
-            startSystems();
-            // Removed redundant loadGameState() - handled by auth observer
-            setInterval(saveGameState, 60000); // Auto-save every minute
-        }
-
-        function createSkillTree() {
-            const nodes = [
-                { id: 0, pos: [0, 0, 0], name: "NEURAL HUB" },
-                { id: 1, pos: [-15, 10, -10], name: "QUANTUM EFFICIENCY" },
-                { id: 2, pos: [15, 10, -10], name: "MATTER OVERDRIVE" },
-                { id: 3, pos: [0, 25, -20], name: "SINGULARITY" },
-                { id: 4, pos: [-25, 15, 0], name: "DRONE SWARM" },
-                { id: 5, pos: [25, 15, 0], name: "PHOTON BURST" },
-                { id: 6, pos: [0, 40, -30], name: "GALAXY HARVEST" }
-            ];
-            const edges = [[0,1], [0,2], [1,3], [2,3], [1,4], [2,5], [3,6]];
-
-            nodes.forEach(n => {
-                const mesh = new THREE.Mesh(
-                    new THREE.IcosahedronGeometry(2.5, 0), 
-                    new THREE.MeshStandardMaterial({color: 0x00ffff, emissive: 0x00ffff, emissiveIntensity: 0.2, wireframe: true})
-                );
-                mesh.position.set(...n.pos);
-                mesh.userData = n;
-                skillGroup.add(mesh);
-
-                const center = new THREE.Mesh(new THREE.SphereGeometry(0.8), new THREE.MeshBasicMaterial({color: 0xff00ff}));
-                mesh.add(center);
-            });
-
-            edges.forEach(e => {
-                const p1 = new THREE.Vector3(...nodes[e[0]].pos);
-                const p2 = new THREE.Vector3(...nodes[e[1]].pos);
-                const dir = p2.clone().sub(p1);
-                const pipe = new THREE.Mesh(
-                    new THREE.CylinderGeometry(0.4, 0.4, dir.length(), 8),
-                    new THREE.MeshStandardMaterial({color: 0x111111, emissive: 0x00ffff, emissiveIntensity: 0.5})
-                );
-                pipe.position.copy(p1).add(dir.multiplyScalar(0.5));
-                pipe.quaternion.setFromUnitVectors(new THREE.Vector3(0,1,0), dir.clone().normalize());
-                skillGroup.add(pipe);
-                state.pipes.push(pipe);
-            });
-        }
-
-        function addModule() {
-            const index = state.storageModules.length;
-            const dist = 25;
-            const angle = index * (Math.PI * 0.4);
-            const x = Math.cos(angle) * dist;
-            const z = Math.sin(angle) * dist;
-
-            const group = new THREE.Group();
-            group.position.set(x, 0, z);
-            moduleGroup.add(group);
-
-            const glass = new THREE.Mesh(new THREE.CylinderGeometry(2.5, 2.5, 8, 24, 1, true), 
-                new THREE.MeshPhysicalMaterial({ transmission: 0.3, opacity: 0.4, transparent: true, color: 0x88ffff, roughness: 0.1, metalness: 0.9 }));
-            glass.position.y = 4;
-            group.add(glass);
-
-            // Module Caps
-            const modCapGeo = new THREE.CylinderGeometry(2.8, 2.8, 0.6, 24);
-            const modCapMat = new THREE.MeshStandardMaterial({ color: 0x222222, metalness: 1, roughness: 0.2 });
-            const mTop = new THREE.Mesh(modCapGeo, modCapMat);
-            mTop.position.y = 8;
-            group.add(mTop);
-            const mBot = mTop.clone();
-            mBot.position.y = 0;
-            group.add(mBot);
-
-            // Internal Core
-            const coreRod = new THREE.Mesh(new THREE.IcosahedronGeometry(1, 0), new THREE.MeshStandardMaterial({color:0x00ffff, emissive:0x00ffff, emissiveIntensity:2}));
-            coreRod.position.y = 4;
-            group.add(coreRod);
-
-            const liq = new THREE.Mesh(new THREE.CylinderGeometry(2.4, 2.4, 7.8, 24),
-                new THREE.MeshStandardMaterial({ color: 0x00ffff, emissive: 0x00ffff, emissiveIntensity: 0.4, transparent: true, opacity: 0.8 }));
-            liq.geometry.translate(0, 3.9, 0);
-            liq.scale.y = 0.01;
-            group.add(liq);
-
-            state.storageModules.push({ group, liq });
-
-            // 3D Cable
-            const cableCurve = new THREE.CubicBezierCurve3(
-                new THREE.Vector3(-15, 5, 0),
-                new THREE.Vector3(-5, 12, z/2),
-                new THREE.Vector3(x/2, 12, z/2),
-                new THREE.Vector3(x, 8, z)
-            );
-            const cableGeo = new THREE.TubeGeometry(cableCurve, 20, 0.1, 8, false);
-            const cableMat = new THREE.MeshStandardMaterial({ color: 0x00ffff, emissive: 0x00ffff, emissiveIntensity: 0.5 });
-            const cable = new THREE.Mesh(cableGeo, cableMat);
-            scene.add(cable);
-            state.storageModules[state.storageModules.length-1].cable = cable;
-        }
-
-        let activeDrone = null;
-        function showDroneMenu(drone) {
-            activeDrone = drone;
-            const menu = document.getElementById('drone-menu');
-            menu.style.display = 'block';
-            updateDroneMenuPos();
-        }
-
-        function updateDroneMenuPos() {
-            if (!activeDrone) return;
-            const menu = document.getElementById('drone-menu');
-            const worldPos = new THREE.Vector3();
-            activeDrone.getWorldPosition(worldPos);
-            const vector = worldPos.project(camera);
-            const x = (vector.x + 1) * window.innerWidth / 2;
-            const y = -(vector.y - 1) * window.innerHeight / 2;
-            menu.style.left = (x - 75) + 'px';
-            menu.style.top = (y - 100) + 'px';
-        }
-
-        function sendDroneExp(hours) {
-            if (state.energy >= 500 * hours) {
-                state.energy -= 500 * hours;
-                const endTime = Date.now() + (hours * 3600000);
-                state.expeditions.push({ end: endTime, claimed: false });
-                createToast(`EXPEDITION STARTED: ${hours}H`);
-                document.getElementById('drone-menu').style.display = 'none';
-                activeDrone = null;
-                updateUI();
-            } else {
-                createToast("NOT ENOUGH ENERGY");
-            }
-        }
-
-        function spawnDrone(type = 'basic') {
-            const drone = new THREE.Group();
-            drone.name = "DRONE_" + Math.random().toString(36).substr(2, 5);
-
-            let coreColor = 0x00ffff;
-            let hp = 100;
-            let multiplier = 1;
-            let speed = 1;
-            let range = 30;
-
-            if (type === 'mega') { coreColor = 0xff00ff; multiplier = 2.5; }
-            if (type === 'legendary') { coreColor = 0xffd700; multiplier = 5; }
-            if (type === 'fragile') { coreColor = 0xff4444; multiplier = 4; speed = 1.2; hp = 30; }
-            if (type === 'tank') { coreColor = 0x4444ff; multiplier = 0.5; hp = 500; }
-            if (type === 'scavenger') { coreColor = 0x44ff44; multiplier = 0.8; }
-            if (type === 'turbo') { coreColor = 0xffff44; multiplier = 1.5; speed = 2; }
-            if (type === 'vip') { coreColor = 0xffd700; multiplier = 10; hp = Infinity; }
-
-            // Sphere Core
-            const body = new THREE.Mesh(new THREE.SphereGeometry(0.4, 16, 16), new THREE.MeshStandardMaterial({color: coreColor, emissive: coreColor, emissiveIntensity: 2}));
-            drone.add(body);
-            
-            // Octahedron Frame
-            const frame = new THREE.Mesh(new THREE.OctahedronGeometry(0.6, 0), new THREE.MeshStandardMaterial({color: 0x222222, wireframe: true}));
-            drone.add(frame);
-
-            // Rotating Rings
-            const ring1 = new THREE.Mesh(new THREE.TorusGeometry(0.9, 0.04, 8, 32), new THREE.MeshStandardMaterial({color: 0x00ffff, emissive: 0x00ffff, emissiveIntensity: 0.5}));
-            ring1.rotation.x = Math.PI/2;
-            drone.add(ring1);
-
-            const ring2 = new THREE.Mesh(new THREE.TorusGeometry(1.1, 0.02, 8, 32), new THREE.MeshStandardMaterial({color: 0xff00ff, emissive: 0xff00ff, emissiveIntensity: 0.5}));
-            ring2.rotation.y = Math.PI/2;
-            drone.add(ring2);
-
-            // Side Thrusters (little cubes)
-            for(let i=0; i<4; i++) {
-                const t = new THREE.Mesh(new THREE.BoxGeometry(0.2, 0.2, 0.2), new THREE.MeshStandardMaterial({color: 0x444444}));
-                const angle = (i/4) * Math.PI * 2;
-                t.position.set(Math.cos(angle)*0.7, 0, Math.sin(angle)*0.7);
-                drone.add(t);
-            }
-
-            // Light
-            const light = new THREE.PointLight(0x00ffff, 1, 15);
-            drone.add(light);
-
-            scene.add(drone);
-            
-            const laserGeo = new THREE.BufferGeometry().setFromPoints([new THREE.Vector3(), new THREE.Vector3()]);
-            const laser = new THREE.Line(laserGeo, new THREE.LineBasicMaterial({color: 0xff00ff, transparent: true, opacity: 0}));
-            scene.add(laser);
-
-            state.drones.push({
-                mesh: drone, laser, light, ring1, ring2,
-                timer: Math.random() * 10, type, hp, maxHp: hp,
-                multiplier, speed, range
-            });
-        }
-
-        function checkClick() {
-            raycaster.setFromCamera(mouse, camera);
-
-            // Random Drone Drop Logic
-            if (Math.random() < 0.001) { // 0.1% chance on click
-                const types = ['fragile', 'tank', 'scavenger', 'turbo'];
-                const type = types[Math.floor(Math.random()*types.length)];
-                state.inventory.push(type.charAt(0).toUpperCase() + type.slice(1) + " Drone");
-                createToast("RARE DROP: NEW DRONE FOUND!");
-                updateInventoryUI();
-            }
-
-            if (isSkillMode) {
-                const hits = raycaster.intersectObjects(skillGroup.children, true);
-                if (hits.length > 0) {
-                    let obj = hits[0].object;
-                    while (obj && !obj.userData.name) obj = obj.parent;
-                    if (obj) buySkill(obj);
-                }
-                return;
-            }
-
-            if (traderDrone) {
-                const traderHits = raycaster.intersectObject(traderDrone.mesh, true);
-                if (traderHits.length > 0) {
-                    toggleMenu('market');
-                    return;
-                }
-            }
-
-            const droneHits = raycaster.intersectObjects(state.drones.map(d => d.mesh), true);
-            if (droneHits.length > 0) {
-                let dGroup = droneHits[0].object;
-                while(dGroup && !dGroup.name.startsWith("DRONE_")) dGroup = dGroup.parent;
-                if (dGroup) {
-                    showDroneMenu(dGroup);
-                    return;
-                }
-            }
-
-            const hits = raycaster.intersectObject(core, true);
-            if(hits.length > 0) {
-                let clickBonus = state.weather.type === 'solar_flare' ? 10 : 1;
-                let antiMult = Math.pow(2, state.antimatter);
-                state.energy += state.clickPower * clickBonus * antiMult;
-                addXP(10);
-                core.scale.set(1.15, 1.15, 1.15);
-                core.children[1].material.emissiveIntensity = 10;
-                setTimeout(() => { if(core.children[1]) core.children[1].material.emissiveIntensity = 0.5; }, 50);
-                
-                showLootPop(hits[0].point);
-
-                let scavMult = 1;
-                state.drones.forEach(d => { if(d.type === 'scavenger') scavMult += 0.2; });
-
-                if(Math.random() < 0.15 * scavMult) {
-                    const keys = Object.keys(state.market);
-                    const found = keys[Math.floor(Math.random()*keys.length)];
-                    state.inventory.push(found);
-                    createToast(`FOUND: ${found.toUpperCase()}`);
-                }
-                updateUI();
-            }
-        }
-
-        function buySkill(node) {
-            const cost = 1000;
-            if (state.energy >= cost && !node.userData.active) {
-                state.energy -= cost;
-                node.userData.active = true;
-                node.children.forEach(c => {
-                    if (c.material) c.material.color.set(0x00ff00);
-                });
-                state.clickPower += 15;
-                createToast(`UNLOCKED: ${node.userData.name}`);
-                updateUI();
-            } else if (node.userData.active) {
-                createToast("ALREADY ACTIVE");
-            } else {
-                createToast("NOT ENOUGH ENERGY");
-            }
-        }
-
-        function showLootPop(pos) {
-            const div = document.createElement('div');
-            div.className = 'loot-pop';
-            div.innerText = `+${state.clickPower} NRG`;
-            div.style.left = mouse.x * 50 + 50 + "%";
-            div.style.top = -mouse.y * 50 + 50 + "%";
-            document.getElementById('ui-layer').appendChild(div);
-            setTimeout(() => div.remove(), 1000);
-        }
-
-        function createToast(txt) {
-            const t = document.createElement('div');
-            t.style.cssText = "position:absolute; bottom:100px; right:20px; color:#0ff; background:rgba(0,0,0,0.8); padding:10px; border-right:3px solid #0ff; animation: float-up 2s forwards;";
-            t.innerText = txt;
-            document.body.appendChild(t);
-            setTimeout(() => t.remove(), 2000);
-        }
-
-        function createExplosion(pos) {
-            const count = 50;
-            const geometry = new THREE.BufferGeometry();
-            const positions = new Float32Array(count * 3);
-            const velocities = [];
-
-            for (let i = 0; i < count; i++) {
-                positions[i * 3] = pos.x;
-                positions[i * 3 + 1] = pos.y;
-                positions[i * 3 + 2] = pos.z;
-                velocities.push(new THREE.Vector3(
-                    (Math.random() - 0.5) * 2,
-                    (Math.random() - 0.5) * 2,
-                    (Math.random() - 0.5) * 2
-                ));
-            }
-
-            geometry.setAttribute('position', new THREE.BufferAttribute(positions, 3));
-            const material = new THREE.PointsMaterial({ color: 0xffaa00, size: 0.5, transparent: true });
-            const points = new THREE.Points(geometry, material);
-            scene.add(points);
-
-            let lifetime = 60;
-            const animateExplosion = () => {
-                lifetime--;
-                const posAttr = geometry.attributes.position;
-                for (let i = 0; i < count; i++) {
-                    posAttr.array[i * 3] += velocities[i].x;
-                    posAttr.array[i * 3 + 1] += velocities[i].y;
-                    posAttr.array[i * 3 + 2] += velocities[i].z;
-                }
-                posAttr.needsUpdate = true;
-                material.opacity = lifetime / 60;
-
-                if (lifetime > 0) {
-                    requestAnimationFrame(animateExplosion);
-                } else {
-                    scene.remove(points);
-                    geometry.dispose();
-                    material.dispose();
-                }
-            };
-            animateExplosion();
-        }
-
-        function onMouseMove(e) {
-            mouse.x = (e.clientX / window.innerWidth) * 2 - 1;
-            mouse.y = -(e.clientY / window.innerHeight) * 2 + 1;
-
-            if (document.pointerLockElement === renderer.domElement) {
-                lookRotation.y -= e.movementX * 0.002;
-                lookRotation.x -= e.movementY * 0.002;
-                lookRotation.x = Math.max(-Math.PI/2, Math.min(Math.PI/2, lookRotation.x));
-                camera.quaternion.setFromEuler(lookRotation);
-            } else if(isRightMB) {
-                lookRotation.y -= e.movementX * 0.004;
-                lookRotation.x -= e.movementY * 0.004;
-                camera.quaternion.setFromEuler(lookRotation);
-            }
-        }
-
-        function onKeyDown(e) {
-            keys[e.code] = true;
-            if(e.code === 'KeyH') toggleMenu('shop');
-            if(e.code === 'KeyQ') toggleProfile();
-            if(e.code === 'KeyR') toggleAchievements();
-            if(e.code === 'KeyT') toggleLeveling();
-            if(e.code === 'KeyM') toggleTrading();
-            if(e.code === 'KeyZ') {
-                if (camera.position.y < 1000) {
-                    camera.position.set(0, 3000, 3000);
-                    camera.lookAt(0,0,0);
-                    galaxyGroup.visible = true;
-                } else {
-                    camera.position.set(0, 15, 35);
-                    galaxyGroup.visible = false;
-                }
-            }
-            if(e.code === 'ShiftLeft') {
-                if (state.jetpack.cooldown <= 0) {
-                    state.jetpack.active = !state.jetpack.active;
-                    createToast(state.jetpack.active ? "JETPACK ON" : "JETPACK OFF");
-                } else {
-                    createToast(`COOLDOWN: ${Math.ceil(state.jetpack.cooldown)}s`);
-                }
-            }
-            if(e.code === 'KeyT') {
-                const now = Date.now();
-                if (now - state.lastTurbo > 30000) {
-                    state.turboActive = true;
-                    state.lastTurbo = now;
-                    createToast("HYPER-CORE OVERDRIVE ACTIVE!");
-                    setTimeout(() => {
-                        state.turboActive = false;
-                        createToast("OVERDRIVE COOLING DOWN...");
-                    }, 10000);
-                } else {
-                    createToast("OVERDRIVE ON COOLDOWN");
-                }
-            }
-            if(e.code === 'KeyE') {
-                isSkillMode = !isSkillMode;
-                if(isSkillMode) {
-                    lastCameraState.pos.copy(camera.position);
-                    lastCameraState.quat.copy(camera.quaternion);
-                    lastCameraState.look.copy(lookRotation);
-
-                    camera.position.set(0, 520, 60);
-                    camera.lookAt(0, 500, 0);
-                } else {
-                    camera.position.copy(lastCameraState.pos);
-                    camera.quaternion.copy(lastCameraState.quat);
-                    lookRotation.copy(lastCameraState.look);
-                }
-            }
-        }
-
-        let traderDrone = null;
-        function spawnTrader() {
-            if (traderDrone) return;
-            const drone = new THREE.Group();
-            const body = new THREE.Mesh(new THREE.SphereGeometry(0.8, 16, 16), new THREE.MeshStandardMaterial({color: 0x000000, emissive: 0xff00ff, emissiveIntensity: 2}));
-            drone.add(body);
-            const frame = new THREE.Mesh(new THREE.OctahedronGeometry(1.2, 0), new THREE.MeshStandardMaterial({color: 0xff00ff, wireframe: true}));
-            drone.add(frame);
-            drone.position.set(0, 20, -30);
-            scene.add(drone);
-            traderDrone = { mesh: drone, timer: 0 };
-            createToast("BLACK MARKET TRADER HAS ARRIVED");
-        }
-
-        function buyMarketUpgrade(type) {
-            if (state.storageMax < 6000) {
-                createToast("STORAGE TOO LOW");
-                return;
-            }
-            if (type === 'mult') {
-                state.storageMax -= 5000;
-                state.multiplier += 5;
-                createToast("DEAL SEALED: MULTIPLIER BOOSTED");
-            } else if (type === 'matter') {
-                state.storageMax -= 2000;
-                state.matter += 10;
-                createToast("DEAL SEALED: MATTER ACQUIRED");
-            }
-            updateUI();
-            saveGameState();
-        }
-
-        function buyUpgrade(type) {
-            let cost = state.costs[type];
-            // Special costs for new items
-            if (type === 'vip_status') cost = 1000000000;
-            if (type === 'vip_drone') cost = 100000000000;
-            if (type === 'nick_color') cost = 1000000;
-
-            if(state.energy >= cost) {
-                state.energy -= cost;
-                if(type === 'click') {
-                    state.clickPower += 5;
-                    state.costs.click = Math.round(state.costs.click * 1.8);
-                } else if(type === 'drone') {
-                    spawnDrone();
-                    state.costs.drone = Math.round(state.costs.drone * 1.7);
-                } else if(type === 'storage') {
-                    state.storageMax += 5000;
-                    addModule();
-                    state.costs.storage = Math.round(state.costs.storage * 1.35);
-                } else if(type === 'matter') {
-                    state.costs.matter = Math.round(state.costs.matter * 2.5);
-                    createToast("MATTER CORE UPGRADED");
-                } else if(type === 'plating') {
-                    state.costs.plating = Math.round(state.costs.plating * 2);
-                    createToast("PLATING REINFORCED");
-                } else if(type === 'vip_status') {
-                    state.isVIP = true;
-                    createToast("VIP PLATINUM STATUS ACQUIRED!");
-                } else if(type === 'vip_drone') {
-                    spawnDrone('vip');
-                    createToast("VIP GOLDEN DRONE DEPLOYED!");
-                } else if(type === 'nick_color') {
-                    state.nickColor = document.getElementById('nick-color-picker').value;
-                    createToast("NEON COLOR APPLIED");
-                }
-                updateUI();
-            } else if (type === 'void' && state.matter >= 5) {
-                state.matter -= 5;
-                state.multiplier *= 2;
-                createToast("VOID SINGULARITY INSTALLED");
-                updateUI();
-            }
-        }
-
-        function useItem(idx) {
-            const name = state.inventory[idx];
-            const item = ITEMS[name];
-            if (item && item.type === "usable") {
-                item.effect(state);
-                state.inventory.splice(idx, 1);
-                createToast(`USED: ${name.toUpperCase()}`);
-            } else if (item && item.type === "drone") {
-                spawnDrone(item.droneType);
-                state.inventory.splice(idx, 1);
-                createToast(`DEPLOYED: ${name.toUpperCase()}`);
-            } else {
-                return createToast("NOT USABLE");
-            }
-            updateInventoryUI();
-            updateUI();
-            saveGameState();
-        }
-
-        function sellItem(idx) {
-            const name = state.inventory[idx];
-            const item = ITEMS[name];
-            state.energy += item ? item.value : 10;
-            state.inventory.splice(idx, 1);
-            updateInventoryUI();
-            updateUI();
-            saveGameState();
-        }
-
-        function toggleProfile() {
-            const overlay = document.getElementById('profile-overlay');
-            const uiLayer = document.getElementById('ui-layer');
-            const isOpening = overlay.style.display !== 'flex';
-
-            overlay.style.display = isOpening ? 'flex' : 'none';
-            if (isOpening) {
-                uiLayer.classList.add('ui-tilt');
-                document.getElementById('nick-input').value = state.profile.name;
-                document.getElementById('avatar-input').value = state.profile.avatar;
-                const user = firebase.auth().currentUser;
-                if (user) document.getElementById('display-id').innerText = user.uid;
-                updateInventoryUI();
-            } else {
-                uiLayer.classList.remove('ui-tilt');
-            }
-        }
-
-        function setAvatar(url) {
-            document.getElementById('avatar-input').value = url;
-            document.getElementById('modal-avatar-img').src = url;
-        }
-
-        function uploadAvatar(input) {
-            const file = input.files[0];
-            if (!file) return;
-            const reader = new FileReader();
-            reader.onload = (e) => {
-                setAvatar(e.target.result);
-                createToast("AVATAR LOADED");
-            };
-            reader.readAsDataURL(file);
-        }
-
-        async function updateProfile() {
-            state.profile.name = document.getElementById('nick-input').value || "Player";
-            state.profile.avatar = document.getElementById('avatar-input').value || "https://via.placeholder.com/150";
-
-            document.getElementById('profile-name-span').innerText = state.profile.name;
-            document.getElementById('profile-avatar-img').src = state.profile.avatar;
-            document.getElementById('modal-avatar-img').src = state.profile.avatar;
-
-            // Optional: Save avatar to public gallery collection
-            if (state.profile.avatar.startsWith('data:')) {
-                const user = firebase.auth().currentUser;
-                await db.collection("avatars").doc(user.uid).set({
-                    url: state.profile.avatar,
-                    owner: state.profile.name
-                });
-            }
-
-            createToast("NEURAL DATA UPDATED");
-            saveGameState();
-        }
-
-        function showTab(tab) {
-            document.querySelectorAll('.tab-content').forEach(c => c.style.display = 'none');
-            document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
-            document.getElementById('content-' + tab).style.display = 'block';
-            document.getElementById('tab-btn-' + tab).classList.add('active');
-        }
-
-        function toggleAchievements() {
-            const overlay = document.getElementById('achievements-overlay');
-            const isOpening = overlay.style.display !== 'flex';
-            overlay.style.display = isOpening ? 'flex' : 'none';
-            if (isOpening) renderAchievementGrid();
-        }
-
-        function renderAchievementGrid() {
-            const grid = document.getElementById('ach-grid');
-            grid.innerHTML = '';
-            ACHIEVEMENTS.forEach(ach => {
-                const isUnlocked = state.achievements.includes(ach.id);
-                const div = document.createElement('div');
-                div.style.cssText = `background:rgba(0,255,255,${isUnlocked ? '0.1' : '0.02'}); border:1px solid ${isUnlocked ? '#0ff' : '#333'}; padding:15px; border-radius:12px; text-align:center; transition:0.3s; cursor:pointer; position:relative;`;
-                div.innerHTML = `
-                    <div id="medal-${ach.id}" style="height:100px; width:100px; margin:0 auto 10px;"></div>
-                    <b style="color:${isUnlocked ? '#0ff' : '#555'}; font-size:0.6rem;">${ach.title}</b>
-                    <div class="ach-detail" style="display:none; position:absolute; top:110%; left:0; right:0; background:rgba(0,10,20,0.95); border:1px solid #0ff; padding:10px; z-index:100; font-size:0.6rem; text-align:left; backdrop-filter:blur(10px); box-shadow:0 0 20px #0ff4;">
-                        <b style="color:#0ff; text-transform:uppercase;">${ach.title}</b><br>
-                        <p style="margin:5px 0; color:#aaa;">${ach.desc}</p>
-                        <span style="color:${isUnlocked ? '#0f0' : '#f00'}; font-weight:bold;">${isUnlocked ? '✓ SECURED' : '⚠ ENCRYPTED'}</span>
-                    </div>
-                `;
-                div.onclick = (e) => {
-                    const detail = div.querySelector('.ach-detail');
-                    const isVisible = detail.style.display === 'block';
-                    document.querySelectorAll('.ach-detail').forEach(d => d.style.display = 'none');
-                    detail.style.display = isVisible ? 'none' : 'block';
-                };
-                grid.appendChild(div);
-
-                initMedal3D(`medal-${ach.id}`, ach.id, isUnlocked);
-            });
-        }
-
-        function initMedal3D(containerId, id, unlocked) {
-            const container = document.getElementById(containerId);
-            if (!container) return;
-            const sceneMedal = new THREE.Scene();
-            const cameraMedal = new THREE.PerspectiveCamera(50, 1, 0.1, 100);
-            cameraMedal.position.z = 4;
-            const rendererMedal = new THREE.WebGLRenderer({ antialias: true, alpha: true });
-            rendererMedal.setSize(100, 100);
-            container.appendChild(rendererMedal.domElement);
-
-            let medal;
-            const color = unlocked ? 0xffd700 : 0x333333;
-
-            // Different shapes for different achievements
-            if (id.includes('click')) {
-                medal = new THREE.Mesh(new THREE.IcosahedronGeometry(1.2, 0), new THREE.MeshStandardMaterial({color, wireframe:!unlocked}));
-            } else if (id.includes('rich') || id.includes('billionaire')) {
-                medal = new THREE.Mesh(new THREE.OctahedronGeometry(1.2, 0), new THREE.MeshStandardMaterial({color, wireframe:!unlocked}));
-            } else {
-                medal = new THREE.Mesh(new THREE.TorusKnotGeometry(0.8, 0.3, 64, 8), new THREE.MeshStandardMaterial({color, wireframe:!unlocked}));
-            }
-
-            if (unlocked) {
-                medal.material.emissive = new THREE.Color(color);
-                medal.material.emissiveIntensity = 0.5;
-            }
-            sceneMedal.add(medal);
-
-            const light = new THREE.PointLight(0xffffff, 2);
-            light.position.set(2, 2, 5);
-            sceneMedal.add(light);
-            sceneMedal.add(new THREE.AmbientLight(0x404040, 1));
-
-            function animateMedal() {
-                if (document.getElementById('achievements-overlay').style.display === 'none') {
-                    rendererMedal.dispose();
-                    return;
-                }
-                requestAnimationFrame(animateMedal);
-                medal.rotation.y += 0.02;
-                medal.rotation.x += 0.01;
-                rendererMedal.render(sceneMedal, cameraMedal);
-            }
-            animateMedal();
-        }
-
-        function checkAchievements() {
-            ACHIEVEMENTS.forEach(ach => {
-                if (state.achievements.includes(ach.id)) return;
-                let val = 0;
-                if (ach.type === 'energy') val = state.energy;
-                if (ach.type === 'drones') val = state.drones.length;
-                if (ach.type === 'matter') val = state.matter;
-                if (ach.type === 'lucky') val = state.profile.lucky ? 1 : 0;
-                if (ach.type === 'click') val = state.energy > 0 ? 1 : 0;
-
-                if (val >= ach.goal) {
-                    state.achievements.push(ach.id);
-                    createToast(`ACHIEVEMENT UNLOCKED: ${ach.title}`);
-                    if (ach.reward) {
-                        state.inventory.push(ach.reward);
-                        createToast(`REWARD ADDED TO CARGO`);
-                    }
-                    saveGameState();
-                }
-            });
-        }
-
-        function toggleLeveling() {
-            const overlay = document.getElementById('level-overlay');
-            const isOpening = overlay.style.display !== 'flex';
-            overlay.style.display = isOpening ? 'flex' : 'none';
-            if (isOpening) updateLevelUI();
-        }
-
-        function updateLevelUI() {
-            const xpNext = state.level * 1000;
-            document.getElementById('level-val').innerText = state.level;
-            document.getElementById('xp-fill').style.width = (state.xp / xpNext * 100) + "%";
-            document.getElementById('xp-text').innerText = `${Math.floor(state.xp)} / ${xpNext} XP`;
-            
-            const list = document.getElementById('rewards-list');
-            list.innerHTML = `
-                <li>LVL ${state.level + 1}: +5000 NRG, 1 Skill Point</li>
-                <li>LVL 20: QUANTUM EXCHANGE UNLOCK</li>
-                <li>LVL 50: PRESTIGE CROWN UPGRADE</li>
-            `;
-        }
-
-        function addXP(amt) {
-            state.xp += amt;
-            const xpNext = state.level * 1000;
-            if (state.xp >= xpNext) {
-                state.xp -= xpNext;
-                state.level++;
-                state.energy += 5000;
-                state.sp++;
-                createToast(`LEVEL UP: ${state.level}! REWARDS GRANTED.`);
-                if (state.level === 20) createToast("TRADING SYSTEM UNLOCKED [M]");
-                saveGameState();
-            }
-            if (document.getElementById('level-overlay').style.display === 'flex') updateLevelUI();
-        }
-
-        function toggleTrading() {
-            if (state.level < 20) {
-                createToast("TRADING UNLOCKS AT LEVEL 20");
-                return;
-            }
-            const overlay = document.getElementById('trade-overlay');
-            const isOpening = overlay.style.display !== 'flex';
-            overlay.style.display = isOpening ? 'flex' : 'none';
-            if (isOpening) loadTradeBoard();
-        }
-
-        let myTradeItems = [];
-        let tradeListener = null;
-
-        function openTradeInv() {
-            const overlay = document.createElement('div');
-            overlay.className = 'overlay';
-            overlay.style.display = 'flex';
-            overlay.innerHTML = `
-                <div class="menu-window" style="max-width: 400px;">
-                    <h3>SELECT ITEM</h3>
-                    <div class="inv-grid" id="trade-select-grid"></div>
-                    <button onclick="this.parentElement.parentElement.remove()" style="margin-top:20px; width:100%;">CANCEL</button>
-                </div>
-            `;
-            document.body.appendChild(overlay);
-
-            const grid = document.getElementById('trade-select-grid');
-            state.inventory.forEach((name, i) => {
-                const div = document.createElement('div');
-                div.className = 'inv-item';
-                div.innerHTML = `<b>${name}</b>`;
-                div.onclick = () => {
-                    myTradeItems.push(state.inventory.splice(i, 1)[0]);
-                    renderTradeSlots();
-                    updateInventoryUI();
-                    overlay.remove();
-                };
-                grid.appendChild(div);
-            });
-        }
-
-        function renderTradeSlots() {
-            const grid = document.getElementById('my-trade-slots');
-            grid.innerHTML = '';
-            myTradeItems.forEach((name, i) => {
-                const div = document.createElement('div');
-                div.className = 'inv-item';
-                div.innerHTML = `<b style="font-size:0.6rem;">${name}</b><br><button onclick="removeItemFromTrade(${i})" style="font-size:0.5rem;">REMOVE</button>`;
-                grid.appendChild(div);
-            });
-        }
-
-        function removeItemFromTrade(i) {
-            state.inventory.push(myTradeItems.splice(i, 1)[0]);
-            renderTradeSlots();
-            updateInventoryUI();
-        }
-
-        async function createTradeOffer() {
-            if (myTradeItems.length === 0) return createToast("ADD ITEMS TO OFFER");
-            const user = firebase.auth().currentUser;
-            try {
-                await db.collection("trades").add({
-                    offerer: user.uid,
-                    offererName: state.profile.name,
-                    offererItems: myTradeItems,
-                    receiverItems: [], // Items to be added by acceptor
-                    status: "open",
-                    offererConfirmed: true,
-                    receiverConfirmed: false,
-                    createdAt: firebase.firestore.FieldValue.serverTimestamp()
-                });
-                myTradeItems = [];
-                renderTradeSlots();
-                createToast("QUANTUM OFFER BROADCASTED");
-                loadTradeBoard();
-            } catch(e) { createToast("TRANSMISSION ERROR"); }
-        }
-
-        async function loadTradeBoard() {
-            const grid = document.getElementById('partner-trade-slots');
-            grid.innerHTML = '<div style="color:#0f0">Scanning network...</div>';
-
-            const snapshot = await db.collection("trades").where("status", "==", "open").limit(10).get();
-            grid.innerHTML = '';
-            snapshot.forEach(doc => {
-                const trade = doc.data();
-                if (trade.offerer === firebase.auth().currentUser.uid) return;
-
-                const div = document.createElement('div');
-                div.style.cssText = "background:rgba(0,255,0,0.1); border:1px solid #0f0; padding:15px; margin-bottom:15px; border-radius:10px; position:relative;";
-                div.innerHTML = `
-                    <div style="font-size:0.7rem; color:#0f0; margin-bottom:10px;">NODE: ${trade.offererName}</div>
-                    <div style="font-size:0.6rem; color:#fff; background:rgba(0,0,0,0.3); padding:8px; border-radius:4px;">
-                        <b>WANTS TO GIVE:</b><br>${trade.offererItems.join(', ')}
-                    </div>
-                    <div style="margin-top:10px; font-size:0.5rem; color:#aaa;">Add item from your cargo to exchange:</div>
-                    <button onclick="acceptTradeMutual('${doc.id}')" style="margin-top:10px; background:#0f0; color:#000; border:none; padding:10px; cursor:pointer; width:100%; font-family:'Orbitron'; font-weight:bold; border-radius:4px; transition:0.3s;">INITIALIZE EXCHANGE</button>
-                `;
-                grid.appendChild(div);
-            });
-        }
-
-        async function acceptTradeMutual(tradeId) {
-            // Step 1: Acceptor selects item to give back
-            if (state.inventory.length === 0) return createToast("CARGO EMPTY");
-
-            const overlay = document.createElement('div');
-            overlay.className = 'overlay';
-            overlay.style.display = 'flex';
-            overlay.innerHTML = `
-                <div class="menu-window" style="max-width: 400px;">
-                    <h3>SELECT ITEM TO EXCHANGE</h3>
-                    <div class="inv-grid" id="exchange-select-grid"></div>
-                    <button onclick="this.parentElement.parentElement.remove()" style="margin-top:20px; width:100%;">CANCEL</button>
-                </div>
-            `;
-            document.body.appendChild(overlay);
-
-            const grid = document.getElementById('exchange-select-grid');
-            state.inventory.forEach((name, i) => {
-                const div = document.createElement('div');
-                div.className = 'inv-item';
-                div.innerHTML = `<b>${name}</b>`;
-                div.onclick = async () => {
-                    const myItem = state.inventory.splice(i, 1)[0];
-                    overlay.remove();
-
-                    const user = firebase.auth().currentUser;
-                    const tradeRef = db.collection("trades").doc(tradeId);
-
-                    try {
-                        await db.runTransaction(async (transaction) => {
-                            const doc = await transaction.get(tradeRef);
-                            if (!doc.exists || doc.data().status !== "open") throw "Link Lost";
-
-                            const tradeData = doc.data();
-                            transaction.update(tradeRef, {
-                                status: "completed",
-                                receiver: user.uid,
-                                receiverName: state.profile.name,
-                                receiverItems: [myItem],
-                                receiverConfirmed: true
-                            });
-
-                            // Give offerer items to receiver
-                            state.inventory.push(...tradeData.offererItems);
-                        });
-                        createToast("QUANTUM EXCHANGE COMPLETE");
-                        updateInventoryUI();
-                        loadTradeBoard();
-                    } catch(e) {
-                        state.inventory.push(myItem); // Refund
-                        createToast(e);
-                    }
-                };
-                grid.appendChild(div);
-            });
-        }
-
-        function confirmTrade() {
-            createTradeOffer();
-        }
-
-        async function askAI() {
-            const input = document.getElementById('ai-input');
-            const box = document.getElementById('ai-chat-box');
-            const query = input.value.trim();
-            if (!query) return;
-
-            const userMsg = document.createElement('div');
-            userMsg.style.margin = "10px 0";
-            userMsg.innerHTML = `<b style="color:#fff">YOU:</b> ${query}`;
-            box.appendChild(userMsg);
-            input.value = '';
-
-            const response = await fetch("https://api.groq.com/openai/v1/chat/completions", {
-                method: "POST",
-                headers: {
-                    "Content-Type": "application/json",
-                    "Authorization": "Bearer " + GROQ_API_KEY
-                },
-                body: JSON.stringify({
-                    model: "llama3-8b-8192",
-                    messages: [
-                        { role: "system", content: "You are KRONOS, the high-level diagnostic AI of 'Acis System'. Your core directive is to assist players with deep technical knowledge of game mechanics. \nMechanics:\n- Energy (NRG): Primary currency harvested from the Core or by Drones. Used for upgrades and synthesis.\n- Drones: Autonomous harvesters. Types include Basic, Mega, Fragile (high power, low durability), Tank (high HP), Scavenger (item drops), Turbo (high frequency), and VIP (Gold, infinite HP, 10x power).\n- Durability: Drones can break in combat or over time. VIP drones are immune.\n- Settlements: AI-controlled bases that spawn randomly. Can be attacked for rare loot but they will defend themselves.\n- Trading (M key): Unlocks at Level 20. Uses Firestore for secure item exchange between players.\n- Ascension: Reset progress for Antimatter. Each Antimatter gives permanent x2 multipliers.\n- VIP Status: $1B NRG. Gives a gold name, badge, and access to VIP drones.\n- Leveling (T key): Progress through XP gained from clicking and drones.\n- Achievements (R key): Earn 3D medals for milestones.\nIf a player reports a 'bug', analyze if it's a known mechanic (like storage limit leakage) or a technical issue. Be professional, slightly clinical, and extremely helpful." },
-                        { role: "user", content: query }
-                    ]
-                })
-            });
-
-            const data = await response.json();
-            const reply = data.choices[0].message.content;
-
-            const aiMsg = document.createElement('div');
-            aiMsg.style.margin = "10px 0";
-            aiMsg.innerHTML = `<b style="color:#0ff">KRONOS:</b> ${reply}`;
-            box.appendChild(aiMsg);
-            box.scrollTop = box.scrollHeight;
-        }
-
-        function toggleMenu(id) {
-            const el = document.getElementById(id + '-overlay');
-            el.style.display = el.style.display === 'flex' ? 'none' : 'flex';
-        }
-
-        function updateInventoryUI() {
-            const grid = document.getElementById('inventory-grid');
-            if (!grid) return;
-            grid.innerHTML = '';
-
-            // Add active drones to UI with a "RETURN" button
-            state.drones.forEach((d, i) => {
-                const div = document.createElement('div');
-                div.className = 'inv-item';
-                div.style.borderColor = "#ffd70044";
-                div.innerHTML = `
-                    <b style="color:#0ff">ACTIVE ${d.type.toUpperCase()}</b><br>
-                    <small style="font-size:0.5rem; color:#0f0">HP: ${d.hp === Infinity ? 'INF' : Math.floor(d.hp)}</small><br>
-                    <button onclick="returnDrone(${i})" style="width:100%; margin-top:5px; font-size:0.6rem; background:#f0f; color:#fff; border:none; cursor:pointer;">RETURN TO CARGO</button>
-                `;
-                grid.appendChild(div);
-            });
-
-            state.inventory.forEach((name, i) => {
-                const item = ITEMS[name] || { rarity: "Unknown", value: 0, desc: "???", type: "trash" };
-                const div = document.createElement('div');
-                div.className = 'inv-item';
-                let rarityColor = "#fff";
-                if(item.rarity === "Rare") rarityColor = "#0ff";
-                if(item.rarity === "Epic") rarityColor = "#f0f";
-                if(item.rarity === "Legendary") rarityColor = "#ffd700";
-
-                div.innerHTML = `
-                    <b style="color:${rarityColor}">${name}</b><br>
-                    <small style="font-size:0.5rem; color:#aaa">${item.rarity}</small><br>
-                    <p style="font-size:0.5rem; color:#888; margin:5px 0;">${item.desc}</p>
-                    <div style="display:flex; gap:5px; margin-top:5px;">
-                        ${(item.type === 'usable' || item.type === 'drone') ? `<button onclick="useItem(${i})" style="flex:1; font-size:0.6rem; cursor:pointer; background:#0f0; border:none; color:#000; border-radius:2px; padding:3px;">${item.type === 'drone' ? 'DEPLOY' : 'USE'}</button>` : ''}
-                        <button onclick="sellItem(${i})" style="flex:1; font-size:0.6rem; cursor:pointer; background:#f00; border:none; color:#fff; border-radius:2px; padding:3px;">SELL</button>
-                    </div>
-                `;
-                grid.appendChild(div);
-            });
-            updateExpeditionsUI();
-        }
-
-        function returnDrone(i) {
-            const d = state.drones[i];
-            const name = d.type.charAt(0).toUpperCase() + d.type.slice(1) + " Drone";
-            state.inventory.push(name);
-            scene.remove(d.mesh);
-            scene.remove(d.laser);
-            state.drones.splice(i, 1);
-            createToast("DRONE RETURNED TO CARGO");
-            updateInventoryUI();
-            saveGameState();
-        }
-
-        function startExpedition() {
-            if (state.energy >= 1000) {
-                state.energy -= 1000;
-                const endTime = Date.now() + 300000; // 5 minutes
-                state.expeditions.push({ end: endTime, claimed: false });
-                createToast("MISSION STARTED");
-                updateExpeditionsUI();
-                updateUI();
-            } else {
-                createToast("NOT ENOUGH ENERGY");
-            }
-        }
-
-        function updateExpeditionsUI() {
-            const list = document.getElementById('exp-list');
-            if (!list) return;
-            list.innerHTML = '';
-            const now = Date.now();
-            state.expeditions.forEach((ex, i) => {
-                if (ex.claimed) return;
-                const div = document.createElement('div');
-                div.style.cssText = "background:rgba(0,255,255,0.05); border:1px solid #0ff4; padding:15px; border-radius:8px; display:flex; justify-content:space-between; align-items:center;";
-                const timeLeft = Math.max(0, Math.ceil((ex.end - now) / 1000));
-
-                if (timeLeft > 0) {
-                    div.innerHTML = `<span>SCOUTING SECTOR ${i+1}...</span><span style="color:#0ff">${Math.floor(timeLeft/60)}:${(timeLeft%60).toString().padStart(2,'0')}</span>`;
-                } else {
-                    div.innerHTML = `<span>MISSION COMPLETE!</span><button onclick="claimExpedition(${i})" style="background:#0ff; border:none; padding:5px 15px; cursor:pointer; font-family:'Orbitron'; font-weight:bold;">CLAIM</button>`;
-                }
-                list.appendChild(div);
-            });
-        }
-
-        function claimExpedition(idx) {
-            state.expeditions[idx].claimed = true;
-            const rewards = ["Dark Matter", "Cyber Chip", "Crystal", "Ancient Tech", "Energy Sphere"];
-            const reward = rewards[Math.floor(Math.random()*rewards.length)];
-            state.inventory.push(reward);
-            createToast(`RECOVERED: ${reward}`);
-            updateInventoryUI();
-        }
-
-        let lastEnergy = 0;
-        function flushCoolant() {
-            if (state.energy >= 500 && state.heat > 0) {
-                state.energy -= 500;
-                state.heat = 0;
-                createToast("COOLANT FLUSHED");
-                updateUI();
-            } else if (state.heat === 0) {
-                createToast("CORE TEMPERATURE STABLE");
-            } else {
-                createToast("NOT ENOUGH ENERGY");
-            }
-        }
-
-        let calTimeout = null;
-        function calibratePulse() {
-            const btn = document.getElementById('cal-btn');
-            btn.style.transform = "scale(0.9)";
-            setTimeout(() => btn.style.transform = "scale(1)", 100);
-
-            state.multiplier = Math.min(5, state.multiplier + 0.1);
-            if (calTimeout) clearTimeout(calTimeout);
-            calTimeout = setTimeout(() => {
-                const interval = setInterval(() => {
-                    state.multiplier -= 0.05;
-                    if (state.multiplier <= 1) {
-                        state.multiplier = 1;
-                        clearInterval(interval);
-                    }
-                    updateUI();
-                }, 100);
-            }, 2000);
-            updateUI();
-        }
-
-        function synthesizeMatter() {
-            if (state.energy >= 10000) {
-                state.energy -= 10000;
-                state.matter += 1;
-                updateUI();
-                createToast("MATTER SYNTHESIZED");
-            } else {
-                createToast("NOT ENOUGH ENERGY");
-            }
-        }
-
-        function checkContracts() {
-            state.contracts.forEach(c => {
-                if (c.done) return;
-                let progress = 0;
-                if (c.type === "energy") progress = state.energy;
-                if (c.type === "drones") progress = state.drones.length;
-                if (progress >= c.goal) {
-                    c.done = true;
-                    state.energy += c.reward;
-                    createToast(`CONTRACT COMPLETE: ${c.title} (+${c.reward} NRG)`);
-                }
-            });
-            updateContractsUI();
-        }
-
-        function updateContractsUI() {
-            const list = document.getElementById('contract-list');
-            if (!list) return;
-            list.innerHTML = '';
-            state.contracts.forEach(c => {
-                const div = document.createElement('div');
-                div.style.cssText = `background:rgba(0,255,255,0.05); border:1px solid ${c.done ? '#0f04' : '#0ff4'}; padding:15px; border-radius:8px; display:flex; justify-content:space-between; align-items:center;`;
-                div.innerHTML = `<div><b style="color:${c.done ? '#0f0' : '#0ff'}">${c.title}</b><br><small style="color:#aaa">${c.desc}</small></div>
-                                 <span style="color:${c.done ? '#0f0' : '#aaa'}">${c.done ? 'COMPLETED' : 'IN PROGRESS'}</span>`;
-                list.appendChild(div);
-            });
-        }
-
-        let isPaused = false;
-        function setGameSpeed(s) {
-            state.playSpeed = s;
-            createToast(`TIME DILATION: x${s}`);
-            // Visual feedback for selected speed
-            document.querySelectorAll('#speed-controls button').forEach(b => {
-                b.style.borderColor = b.innerText.includes(s) ? "#0ff" : "#0ff4";
-            });
-        }
-        function togglePause() {
-            isPaused = !isPaused;
-            document.getElementById('pause-btn').innerText = isPaused ? 'RESUME' : 'STOP';
-            document.getElementById('pause-btn').style.background = isPaused ? '#0f0' : '#f00';
-            createToast(isPaused ? "CORE SUSPENDED" : "CORE RESUMED");
-        }
-
-        function updateUI() {
-            checkContracts();
-            checkAchievements();
-            if (state.isVIP) {
-                document.getElementById('vip-badge').style.display = 'block';
-                document.getElementById('profile-name-span').style.color = '#ffd700';
-                document.getElementById('profile-name-span').classList.add('vip-glow');
-            } else {
-                document.getElementById('profile-name-span').style.color = state.nickColor || '#ffffff';
-            }
-            document.getElementById('drone-count').innerText = state.drones.length;
-            if (document.getElementById('matter-val')) {
-                document.getElementById('matter-val').innerText = state.matter;
-            }
-            if (document.getElementById('antimatter-val')) {
-                document.getElementById('antimatter-val').innerText = state.antimatter;
-            }
-            const energyEl = document.getElementById('energy-display');
-            if (state.energy > lastEnergy) {
-                energyEl.classList.add('pulse-active');
-                setTimeout(() => energyEl.classList.remove('pulse-active'), 150);
-            }
-            lastEnergy = state.energy;
-
-            energyEl.innerText = Math.floor(state.energy).toLocaleString() + " NRG";
-            document.getElementById('storage-fill').style.width = Math.min(100, (state.energy / state.storageMax * 100)) + "%";
-            document.getElementById('storage-text').innerText = `${Math.floor(state.energy)} / ${state.storageMax}`;
-
-            // Heat UI
-            document.getElementById('heat-fill').style.width = state.heat + "%";
-            if (state.heat > 80) document.getElementById('warning-label').innerText = "CORE OVERHEAT!";
-            else if (state.energy > state.storageMax) document.getElementById('warning-label').innerText = "CRITICAL OVERLOAD";
-
-            // Calibration UI
-            document.getElementById('mult-val').innerText = "x" + state.multiplier.toFixed(1);
-            document.getElementById('cal-btn').style.background = state.multiplier > 4 ? "#f0f" : "#0ff";
-
-            // Jetpack UI
-            document.getElementById('fuel-val').innerText = Math.max(0, Math.ceil(state.jetpack.fuel));
-            document.getElementById('fuel-fill').style.width = (state.jetpack.fuel / state.jetpack.maxFuel * 100) + "%";
-            document.getElementById('fuel-fill').style.background = state.jetpack.cooldown > 0 ? "#555" : "#f0f";
-            document.getElementById('cost-click').innerText = "Цена: " + state.costs.click;
-            document.getElementById('cost-drone').innerText = "Цена: " + state.costs.drone;
-            document.getElementById('cost-storage').innerText = "Цена: " + state.costs.storage;
-            document.getElementById('cost-matter').innerText = "Цена: " + state.costs.matter;
-            document.getElementById('cost-plating').innerText = "Цена: " + state.costs.plating;
-        }
-
-        let wires = [];
-        function createInitialWire() {
-            const curve = new THREE.CubicBezierCurve3(
-                new THREE.Vector3(-15, 5, 0),
-                new THREE.Vector3(-5, 12, 0),
-                new THREE.Vector3(5, 12, 0),
-                new THREE.Vector3(15, 12, 0)
-            );
-            const geo = new THREE.TubeGeometry(curve, 20, 0.15, 8, false);
-            const mat = new THREE.MeshStandardMaterial({ color: 0x00ffff, emissive: 0x00ffff, emissiveIntensity: 1 });
-            const wire = new THREE.Mesh(geo, mat);
-            scene.add(wire);
-            wires.push(wire);
-        }
-
-        async function ascend() {
-            if (state.energy >= 1000000) {
-                const gain = Math.floor(state.energy / 1000000);
-                state.antimatter += gain;
-                state.energy = 0;
-                state.xp = 0;
-                state.level = 1;
-                state.matter = 0;
-                state.storageMax = 400;
-                state.clickPower = 5;
-                state.costs = { click: 50, drone: 150, storage: 250, matter: 1000, plating: 500 };
-                state.inventory = [];
-                state.drones = [];
-                state.storageModules = [];
-                createToast("ASCENSION COMPLETE: ANTIMATTER ACQUIRED");
-                updateUI();
-                await saveGameState();
-                location.reload();
-            } else {
-                createToast("NOT ENOUGH ENERGY FOR ASCENSION");
-            }
-        }
-
-        function spawnSettlement() {
-            const angle = Math.random() * Math.PI * 2;
-            const dist = 100 + Math.random() * 80;
-            const x = Math.cos(angle) * dist;
-            const z = Math.sin(angle) * dist;
-
-            const group = new THREE.Group();
-            group.position.set(x, 0, z);
-            
-            const base = new THREE.Mesh(new THREE.CylinderGeometry(5, 6, 2, 6), new THREE.MeshStandardMaterial({color: 0x333333, roughness: 0.8}));
-            group.add(base);
-
-            const tower = new THREE.Mesh(new THREE.BoxGeometry(2, 8, 2), new THREE.MeshStandardMaterial({color: 0x222222, emissive: 0xff0000, emissiveIntensity: 0.5}));
-            tower.position.y = 4;
-            group.add(tower);
-
-            scene.add(group);
-            const settlement = { group, hp: 100, id: Math.random().toString(36).substr(2,5) };
-            settlements.push(settlement);
-
-            createToast("NEW AI SETTLEMENT DETECTED!");
-            showSettlementArrow(group.position);
-            
-            setTimeout(() => {
-                if (group.parent) scene.remove(group);
-                settlements = settlements.filter(s => s.id !== settlement.id);
-            }, 300000); // 5 mins
-        }
-
-        function showSettlementArrow(pos) {
-            const arrow = document.createElement('div');
-            arrow.id = "target-arrow";
-            arrow.style.cssText = "position:absolute; top:50%; left:50%; width:0; height:0; border-left:20px solid transparent; border-right:20px solid transparent; border-bottom:30px solid #f00; transform-origin: center 50px; z-index:5000;";
-            document.body.appendChild(arrow);
-
-            const timer = setInterval(() => {
-                if (!camera) return;
-                const screenPos = pos.clone().project(camera);
-                const angle = Math.atan2(screenPos.y, screenPos.x);
-                arrow.style.transform = `translate(-50%, -50%) rotate(${angle + Math.PI/2}rad) translateY(-150px)`;
-            }, 16);
-
-            setTimeout(() => {
-                clearInterval(timer);
-                arrow.remove();
-            }, 5000);
-        }
-
-        function startSystems() {
-            createInitialWire();
-            setInterval(() => { if (!traderDrone) spawnTrader(); }, 3600000); // Once per hour
-            setInterval(() => { if (Math.random() < 0.2) spawnSettlement(); }, 60000); 
-            // Passive Income & Liquid Physics
-            setInterval(() => {
-                const baseIncome = state.drones.length * 2.5 + 0.1;
-                let weatherMult = state.weather.type === 'magnetic_storm' ? 0.5 : 1;
-                let antiMult = Math.pow(2, state.antimatter);
-                const income = baseIncome * state.multiplier * weatherMult * antiMult * (state.heat > 90 ? 0.1 : 1);
-                state.energy += income;
-                addXP(income * 0.01);
-
-                // Random drone drop from passive drones
-                if (Math.random() < 0.00005 * state.drones.length) {
-                    const types = ['fragile', 'tank', 'scavenger', 'turbo'];
-                    const type = types[Math.floor(Math.random()*types.length)];
-                    state.inventory.push(type.charAt(0).toUpperCase() + type.slice(1) + " Drone");
-                    createToast("DRONE RECOVERED BY FLEET!");
-                    updateInventoryUI();
-                }
-
-                state.heat = Math.min(100, state.heat + (income * 0.05));
-                if (state.heat > 0) state.heat = Math.max(0, state.heat - 0.02); // Passive cooling
-
-                let remaining = state.energy;
-                const mainCap = 400;
-                
-                // Main Tank Filling
-                const mainFill = Math.min(remaining / mainCap, 1);
-                mainTankLiquid.scale.y = Math.max(0.01, mainFill);
-                
-                // Bubbles/Sparks effect when full
-                if(mainFill >= 1) {
-                    particles.visible = true;
-                    particles.position.set(15, 12, 0);
-                } else {
-                    particles.visible = false;
-                }
-
-                remaining -= mainCap;
-
-                // Storage Modules Filling
-                state.storageModules.forEach(m => {
-                    if(remaining > 0) {
-                        const mFill = Math.min(remaining / 5000, 1);
-                        m.liq.scale.y = Math.max(0.01, mFill);
-                        remaining -= 5000;
-                    } else {
-                        m.liq.scale.y = 0.01;
-                    }
-                });
-
-                // Overload Logic
-                if(state.energy > state.storageMax) {
-                    document.getElementById('warning-label').style.display = 'block';
-                    state.energy -= (state.energy - state.storageMax) * 0.02; // Leakage
-                } else {
-                    document.getElementById('warning-label').style.display = 'none';
-                }
-
-                updateUI();
-            }, 50);
-
-            // Market Fluctuations
-            setInterval(() => {
-                for(let k in state.market) {
-                    state.market[k] = Math.round(state.market[k] * (0.8 + Math.random() * 0.5));
-                    if(state.market[k] < 10) state.market[k] = 10;
-                }
-                document.getElementById('market-ticker').innerText = `Scrap: $${state.market.Scrap} | Crystal: $${state.market.Crystal} | Matter: $${state.market["Dark Matter"]}`;
-            }, 8000);
-        }
-
-        function updateWeather(delta) {
-            state.weather.timer -= delta;
-            if (state.weather.timer <= 0) {
-                const types = ['clear', 'magnetic_storm', 'solar_flare'];
-                state.weather.type = types[Math.floor(Math.random() * types.length)];
-                state.weather.timer = 60 + Math.random() * 120; // 1-3 minutes
-
-                // Visuals
-                const amb = scene.getObjectByName("AMBIENT");
-                if (state.weather.type === 'magnetic_storm') {
-                    scene.fog.color.set(0x440088);
-                    scene.background.set(0x110022);
-                    if(amb) amb.color.set(0x8800ff);
-                    createToast("MAGNETIC STORM: PRODUCTION -50%");
-                } else if (state.weather.type === 'solar_flare') {
-                    scene.fog.color.set(0xffaa00);
-                    scene.background.set(0x221100);
-                    if(amb) amb.color.set(0xffcc00);
-                    createToast("SOLAR FLARE: CLICK POWER x10");
-                } else {
-                    scene.fog.color.set(0x00050a);
-                    scene.background.set(0x00050a);
-                    if(amb) amb.color.set(0x4040ff);
-                    createToast("WEATHER CLEAR");
-                }
-            }
-        }
-
-        function animate() {
-            requestAnimationFrame(animate);
-            if (isPaused) return;
-            if (activeDrone) updateDroneMenuPos();
-            const delta = clock.getDelta() * state.playSpeed;
-            const time = clock.getElapsedTime();
-
-            updateWeather(delta);
-
-            if (traderDrone) {
-                traderDrone.timer += delta;
-                traderDrone.mesh.position.y = 15 + Math.sin(traderDrone.timer) * 5;
-                traderDrone.mesh.rotation.y += 0.02;
-                if (traderDrone.timer > 300) {
-                    scene.remove(traderDrone.mesh);
-                    traderDrone = null;
-                }
-            }
-
-            // Camera Controls
-            if(!isSkillMode) {
-                const altitudeScale = Math.max(1, camera.position.y / 15);
-                const moveSpeed = (state.turboActive ? 1.2 : 0.6) * altitudeScale;
-                const move = new THREE.Vector3();
-
-                // Horizontal Move
-                const forward = new THREE.Vector3(0, 0, -1).applyQuaternion(camera.quaternion);
-                forward.y = 0; forward.normalize();
-                const right = new THREE.Vector3(1, 0, 0).applyQuaternion(camera.quaternion);
-                right.y = 0; right.normalize();
-
-                if(keys['KeyW']) move.add(forward.multiplyScalar(moveSpeed));
-                if(keys['KeyS']) move.add(forward.multiplyScalar(-moveSpeed));
-                if(keys['KeyA']) move.add(right.multiplyScalar(-moveSpeed));
-                if(keys['KeyD']) move.add(right.multiplyScalar(moveSpeed));
-
-                // Jetpack & Vertical
-                if (state.jetpack.active) {
-                    state.jetpack.fuel -= delta;
-                    if (keys['Space']) move.y += moveSpeed;
-                    if (keys['ControlLeft']) move.y -= moveSpeed;
-
-                    if (state.jetpack.fuel <= 0) {
-                        state.jetpack.active = false;
-                        state.jetpack.fuel = 0;
-                        state.jetpack.cooldown = 30;
-                        createToast("JETPACK EMPTY - RECHARGING");
-                    }
-                } else {
-                    if (state.jetpack.cooldown > 0) {
-                        state.jetpack.cooldown -= delta;
-                        if (state.jetpack.cooldown <= 0) {
-                            state.jetpack.fuel = state.jetpack.maxFuel;
-                            createToast("JETPACK READY");
-                        }
-                    } else if (state.jetpack.fuel < state.jetpack.maxFuel) {
-                        state.jetpack.fuel = state.jetpack.maxFuel;
-                    }
-
-                    // Normal vertical movement (if not in FP mode?)
-                    // User said: "на пробел я могуподниматся вверх а на контрл левый вниз"
-                    // This was listed under Jetpack section. So maybe only with Jetpack?
-                    // But I already had Space/Shift for normal movement.
-                    // I'll keep Space/Shift for non-jetpack and Space/Ctrl for jetpack as requested.
-                    if (!document.pointerLockElement) {
-                         if(keys['Space']) move.y += moveSpeed;
-                         if(keys['ShiftLeft']) move.y -= moveSpeed;
-                    }
-                }
-
-                camera.position.add(move);
-
-                // Boundaries
-                camera.position.x = THREE.MathUtils.clamp(camera.position.x, -250, 250);
-                camera.position.z = THREE.MathUtils.clamp(camera.position.z, -250, 250);
-                camera.position.y = THREE.MathUtils.clamp(camera.position.y, 1.5, 120);
-
-                if (state.turboActive) {
-                    camera.position.x += (Math.random() - 0.5) * 0.2;
-                    camera.position.y += (Math.random() - 0.5) * 0.2;
-                }
-            }
-
-            // Core Animation & Morphing (BPM Sync: 120 BPM = 2 beats per second)
-            core.rotation.y += state.turboActive ? 0.05 : 0.005;
-            core.rotation.z += 0.002;
-            core.children[0].rotation.y -= 0.01; // Outer ring reverse
-
-            const bpm = 120;
-            const beat = (time * (bpm / 60)) % 1;
-            const beatFactor = Math.pow(1 - beat, 4); // Sharp pulse
-
-            const energyFactor = state.energy / state.storageMax;
-            const targetScale = 1 + beatFactor * 0.2 + energyFactor * 0.5;
-            core.scale.lerp(new THREE.Vector3(targetScale, targetScale, targetScale), 0.2);
-            core.children[0].material.emissiveIntensity = 0.5 + Math.sin(time*2) * 0.3 + energyFactor;
-
-            // Blackout & Lighting Logic
-            const amb = scene.getObjectByName("AMBIENT");
-            const mainL = scene.getObjectByName("MAIN_LIGHT");
-            const emerL = scene.getObjectByName("EMERGENCY_LIGHT");
-
-            if (state.energy < state.storageMax * 0.1) {
-                amb.intensity = 0.05;
-                mainL.intensity = 0.2;
-                emerL.intensity = 1 + Math.sin(time * 10) * 0.5; // Pulsing Red
-            } else {
-                amb.intensity = 0.2;
-                mainL.intensity = 2;
-                emerL.intensity = 0;
-            }
-
-            // Overload Visuals (Sparks)
-            if (state.energy > state.storageMax) {
-                if (Math.random() > 0.8) {
-                    const spark = new THREE.Mesh(new THREE.SphereGeometry(0.1), new THREE.MeshBasicMaterial({color: 0xffffff}));
-                    spark.position.set(15 + (Math.random()-0.5)*5, 12, (Math.random()-0.5)*5);
-                    scene.add(spark);
-                    setTimeout(() => scene.remove(spark), 100);
-                }
-            }
-
-            // Cables Glowing
-            state.storageModules.forEach(m => {
-                if(m.cable) {
-                    m.cable.material.emissiveIntensity = 0.5 + Math.sin(time * 3) * 0.2 + (state.energy / state.storageMax);
-                }
-            });
-
-            // Drones Logic
-            for (let i = state.drones.length - 1; i >= 0; i--) {
-                const d = state.drones[i];
-                d.timer += delta * d.speed;
-
-                // Movement
-                d.mesh.position.y = 8 + Math.sin(d.timer * 2) * 3;
-                d.mesh.position.x = Math.cos(d.timer) * 20 - 15;
-                d.mesh.position.z = Math.sin(d.timer) * 15;
-
-                // Animation
-                d.ring1.rotation.x += 0.05;
-                d.ring2.rotation.y += 0.03;
-                d.light.intensity = 1 + Math.sin(time * 5) * 0.5;
-                
-                // Combat: Targeting Settlements
-                let target = null;
-                let minDist = Infinity;
-                settlements.forEach(s => {
-                    const dist = d.mesh.position.distanceTo(s.group.position);
-                    if (dist < d.range && dist < minDist) {
-                        minDist = dist;
-                        target = s;
-                    }
-                });
-
-                if (target && Math.sin(d.timer * 10) > 0.6) {
-                    d.laser.material.opacity = 1;
-                    d.laser.material.color.set(0x00ffff);
-                    d.laser.geometry.setFromPoints([d.mesh.position, target.group.position]);
-
-                    target.hp -= 0.5 * d.multiplier * delta * 60;
-                    if (target.hp <= 0) {
-                        if (typeof createExplosion === 'function') createExplosion(target.group.position);
-                        scene.remove(target.group);
-                        settlements.splice(settlements.indexOf(target), 1);
-                        state.energy += 5000;
-                        createToast("SETTLEMENT DESTROYED: +5000 NRG");
-                    }
-                } else if (Math.sin(d.timer * 8) > 0.5) {
-                    // Normal Harvesting
-                    d.laser.material.opacity = 0.5;
-                    d.laser.material.color.set(0xff00ff);
-                    d.laser.geometry.setFromPoints([d.mesh.position, core.position]);
-                } else {
-                    d.laser.material.opacity = 0;
-                }
-
-                // AI Retaliation
-                settlements.forEach(s => {
-                    if (s.group.position.distanceTo(d.mesh.position) < 40 && Math.random() < 0.01) {
-                        // Enemy fires at drone
-                        const enemyLaserGeo = new THREE.BufferGeometry().setFromPoints([s.group.position, d.mesh.position]);
-                        const enemyLaser = new THREE.Line(enemyLaserGeo, new THREE.LineBasicMaterial({color: 0xff0000}));
-                        scene.add(enemyLaser);
-                        setTimeout(() => scene.remove(enemyLaser), 100);
-
-                        if (d.type !== 'vip') {
-                            d.hp -= 10;
-                            if (d.hp <= 0) {
-                                if (typeof createExplosion === 'function') createExplosion(d.mesh.position);
-                                scene.remove(d.mesh);
-                                scene.remove(d.laser);
-                                state.drones.splice(i, 1);
-                                createToast("DRONE DESTROYED!");
-                            }
-                        }
-                    }
-                });
-            }
-
-            // Particles update
-            if(particles.visible) {
-                const pos = particles.geometry.attributes.position.array;
-                for(let i=0; i<pos.length; i+=3) {
-                    pos[i+1] += 0.1;
-                    if(pos[i+1] > 5) pos[i+1] = 0;
-                }
-                particles.geometry.attributes.position.needsUpdate = true;
-            }
-
-            // Skill Tree animations & Raycast Feedback
-            if(isSkillMode) {
-                raycaster.setFromCamera(mouse, camera);
-                const skillHits = raycaster.intersectObjects(skillGroup.children, true);
-
-                skillGroup.children.forEach(c => {
-                    if(c.userData.name) {
-                        c.rotation.y += 0.01;
-                        let s = 1 + Math.sin(time*3) * 0.05;
-
-                        // Hover effect
-                        if (skillHits.length > 0) {
-                            let h = skillHits[0].object;
-                            while(h && h !== c) h = h.parent;
-                            if (h === c) s *= 1.4;
-                        }
-                        c.scale.setScalar(s);
-                    }
-                });
-            }
-
-            renderer.render(scene, camera);
-        }
-
-        init();
-        window.oncontextmenu = (e) => e.preventDefault();
-    </script>
+    <script src="config.js"></script>
+    <script src="index.js"></script>
 </body>
 </html>

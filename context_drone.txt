@@ -1,0 +1,52 @@
+        function spawnDrone(type = 'basic') {
+            const drone = new THREE.Group();
+            drone.name = "DRONE_" + Math.random().toString(36).substr(2, 5);
+
+            let coreColor = 0x00ffff;
+            let hp = 100;
+            let multiplier = 1;
+            let speed = 1;
+            let range = 30;
+
+            if (type === 'mega') { coreColor = 0xff00ff; multiplier = 2.5; }
+            if (type === 'legendary') { coreColor = 0xffd700; multiplier = 5; }
+            if (type === 'fragile') { coreColor = 0xff4444; multiplier = 4; speed = 1.2; hp = 30; }
+            if (type === 'tank') { coreColor = 0x4444ff; multiplier = 0.5; hp = 500; }
+            if (type === 'scavenger') { coreColor = 0x44ff44; multiplier = 0.8; }
+            if (type === 'turbo') { coreColor = 0xffff44; multiplier = 1.5; speed = 2; }
+            if (type === 'vip') { coreColor = 0xffd700; multiplier = 10; hp = Infinity; }
+
+            // Sphere Core
+            const body = new THREE.Mesh(new THREE.SphereGeometry(0.4, 16, 16), new THREE.MeshStandardMaterial({color: coreColor, emissive: coreColor, emissiveIntensity: 2}));
+            drone.add(body);
+
+            // Octahedron Frame
+            const frame = new THREE.Mesh(new THREE.OctahedronGeometry(0.6, 0), new THREE.MeshStandardMaterial({color: 0x222222, wireframe: true}));
+            drone.add(frame);
+
+            // Rotating Rings
+            const ring1 = new THREE.Mesh(new THREE.TorusGeometry(0.9, 0.04, 8, 32), new THREE.MeshStandardMaterial({color: 0x00ffff, emissive: 0x00ffff, emissiveIntensity: 0.5}));
+            ring1.rotation.x = Math.PI/2;
+            drone.add(ring1);
+
+            const ring2 = new THREE.Mesh(new THREE.TorusGeometry(1.1, 0.02, 8, 32), new THREE.MeshStandardMaterial({color: 0xff00ff, emissive: 0xff00ff, emissiveIntensity: 0.5}));
+            ring2.rotation.y = Math.PI/2;
+            drone.add(ring2);
+
+            // Side Thrusters (little cubes)
+            for(let i=0; i<4; i++) {
+                const t = new THREE.Mesh(new THREE.BoxGeometry(0.2, 0.2, 0.2), new THREE.MeshStandardMaterial({color: 0x444444}));
+                const angle = (i/4) * Math.PI * 2;
+                t.position.set(Math.cos(angle)*0.7, 0, Math.sin(angle)*0.7);
+                drone.add(t);
+            }
+
+            // Light
+            const light = new THREE.PointLight(0x00ffff, 1, 15);
+            drone.add(light);
+
+            scene.add(drone);
+
+            const laserGeo = new THREE.BufferGeometry().setFromPoints([new THREE.Vector3(), new THREE.Vector3()]);
+            const laser = new THREE.Line(laserGeo, new THREE.LineBasicMaterial({color: 0xff00ff, transparent: true, opacity: 0}));
+            scene.add(laser);
