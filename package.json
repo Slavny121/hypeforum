@@ -1,0 +1,12 @@
+{
+  "name": "neon-core",
+  "version": "5.0.0",
+  "description": "Acis System: Neon Core - 3D Idle Game",
+  "main": "index.js",
+  "scripts": {
+    "start": "http-server . -p 8080 -o"
+  },
+  "dependencies": {
+    "http-server": "^14.1.1"
+  }
+}

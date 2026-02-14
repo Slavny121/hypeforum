@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Acis System</title>
+    <title>Neural Core</title>
     <link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@400;700&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="style.css">
 </head>
@@ -13,7 +13,6 @@
     <div id="ui-layer">
         <div class="hud-header" id="header">
             <p style="color: #0ff; margin: 0; font-size: 0.7rem; letter-spacing: 5px;">COMMAND_CENTER</p>
-            <h1>ACIS_CORE</h1>
         </div>
 
         <div id="info-panel">
@@ -102,7 +101,7 @@
         <!-- МАГАЗИН -->
         <div id="shop-overlay" class="overlay">
             <div class="menu-window">
-                <h2 style="color:#0ff; text-align:center; text-transform:uppercase; letter-spacing:4px;">Acis Store</h2>
+                <h2 style="color:#0ff; text-align:center; text-transform:uppercase; letter-spacing:4px;">Core Store</h2>
                 <div class="grid">
                     <div class="card">
                         <b>Pulse Clicker</b><br><small>Мощный импульс: +5 NRG</small>
@@ -118,6 +117,11 @@
                         <b>Storage Cell</b><br><small>+5000 к лимиту сети</small>
                         <p id="cost-storage" style="color:#0ff">Цена: 250</p>
                         <button onclick="buyUpgrade('storage')">EXPAND</button>
+                    </div>
+                    <div class="card">
+                        <b>Inventory Slot</b><br><small>+4 slots for Cargo</small>
+                        <p id="cost-inv" style="color:#0ff">Цена: 500</p>
+                        <button onclick="buyUpgrade('inv')">EXPAND</button>
                     </div>
                     <div class="card">
                         <b>Dark Matter Core</b><br><small>x2 пассивная добыча</small>
@@ -156,70 +160,83 @@
         </div>
 
         <!-- NEURAL HUB [Q] -->
-        <div id="profile-overlay" class="overlay" style="background: rgba(0,0,0,0.4); backdrop-filter: none;">
+        <div id="profile-overlay" class="overlay" style="background: rgba(0,0,0,0.6); backdrop-filter: blur(10px);">
             <div id="q-canvas-container" style="position: absolute; inset: 0; z-index: -1;"></div>
 
-            <div id="ui-wrapper" style="opacity: 1; pointer-events: auto; display: flex; width: 100%; height: 100%; justify-content: space-between; align-items: center; padding: 60px; box-sizing: border-box;">
+            <div id="ui-wrapper" style="opacity: 1; pointer-events: auto; display: flex; width: 100%; height: 100%; justify-content: space-around; align-items: center; padding: 40px; box-sizing: border-box;">
                 <!-- PROFILE -->
-                <div class="profile-section">
-                    <div class="commander-card">
-                        <div class="avatar-box">
-                            <div class="scanner-ring"></div>
-                            <div id="q-avatar-img" class="avatar-img" style="background-size: cover;"></div>
+                <div class="profile-section-new">
+                    <div class="commander-card-large">
+                        <div class="avatar-box-large">
+                            <div class="scanner-ring-large"></div>
+                            <div id="q-avatar-img" class="avatar-img-large" style="background-size: cover;"></div>
                         </div>
-                        <div id="q-nick-display" style="font-family: 'Orbitron'; font-weight: 900; font-size: 1.5rem;" class="glitch-text">ACIS_COMMANDER</div>
-                        <div id="q-rank-display" style="font-size: 0.7rem; color: var(--cyan); letter-spacing: 3px; margin-top: 5px;">RANK: SYSTEM_OVERLORD</div>
+                        
+                        <div style="width: 100%;">
+                            <label style="font-size: 0.6rem; color: var(--cyan); letter-spacing: 4px;">NEURAL_IDENTIFIER</label>
+                            <input type="text" id="q-nick-input" placeholder="Enter Nickname" style="width: 100%; background: rgba(0,242,255,0.05); border: 1px solid var(--cyan); color: #fff; padding: 15px; font-family: 'Orbitron'; font-size: 1.4rem; margin-top: 8px; outline: none; box-shadow: 0 0 20px rgba(0,242,255,0.1);" onchange="updateProfileName(this.value)">
+                        </div>
 
-                        <div style="margin-top: 30px;">
+                        <div id="q-rank-display" style="font-size: 0.8rem; color: var(--cyan); letter-spacing: 5px; margin-top: 20px; font-weight: bold;">RANK: SYSTEM_OVERLORD</div>
+                        <div id="display-id" style="font-size: 0.6rem; color: #555; margin-top: 5px; letter-spacing: 2px;">UID: 00000000</div>
+
+                        <!-- Avatar Gallery -->
+                        <div style="margin-top: 30px; width: 100%;">
+                            <label style="font-size: 0.6rem; color: var(--cyan); letter-spacing: 4px;">AVATAR_LINK_SELECTION</label>
+                            <div id="avatar-gallery" style="display: flex; gap: 15px; margin-top: 15px; overflow-x: auto; padding-bottom: 15px;">
+                                <img src="https://api.dicebear.com/7.x/bottts-neutral/svg?seed=Acis1" class="gallery-img" onclick="setProfileAvatar(this.src)">
+                                <img src="https://api.dicebear.com/7.x/bottts-neutral/svg?seed=Acis2" class="gallery-img" onclick="setProfileAvatar(this.src)">
+                                <img src="https://api.dicebear.com/7.x/bottts-neutral/svg?seed=Acis3" class="gallery-img" onclick="setProfileAvatar(this.src)">
+                                <img src="https://api.dicebear.com/7.x/bottts-neutral/svg?seed=Acis4" class="gallery-img" onclick="setProfileAvatar(this.src)">
+                                <img src="https://api.dicebear.com/7.x/bottts-neutral/svg?seed=Acis5" class="gallery-img" onclick="setProfileAvatar(this.src)">
+                                <div class="upload-btn-q" onclick="document.getElementById('q-avatar-upload').click()">+</div>
+                                <input type="file" id="q-avatar-upload" style="display:none" accept="image/*" onchange="uploadProfileAvatar(this)">
+                            </div>
+                        </div>
+
+                        <div style="margin-top: 30px; width: 100%;">
                             <div style="display:flex; justify-content:space-between; font-size: 0.6rem; margin-bottom: 5px;">
                                 <span>NEURAL_SYNC</span>
                                 <span id="sync-val">98%</span>
                             </div>
-                            <div style="height: 2px; background: rgba(255,255,255,0.1);">
-                                <div id="sync-bar" style="width: 98%; height: 100%; background: var(--cyan); box-shadow: 0 0 10px var(--cyan);"></div>
+                            <div style="height: 4px; background: rgba(255,255,255,0.1);">
+                                <div id="sync-bar" style="width: 98%; height: 100%; background: var(--cyan); box-shadow: 0 0 15px var(--cyan);"></div>
                             </div>
                         </div>
 
-                        <div id="q-stats-info" style="margin-top: 20px; font-size: 0.65rem; color: rgba(255,255,255,0.5); line-height: 1.6;">
-                            > СТАТУС: ОНЛАЙН<br>
-                            > МЕСТОПОЛОЖЕНИЕ: CORE_BASE<br>
-                            > ВНИМАНИЕ: СИСТЕМА СТАБИЛЬНА
-                        </div>
-
-                        <div style="margin-top: 20px; display: flex; flex-direction: column; gap: 10px;">
-                            <button onclick="linkAccount()" id="link-btn-q" style="background: none; border: 1px solid var(--cyan); color: var(--cyan); padding: 5px; font-family: 'Orbitron'; font-size: 0.5rem; cursor: pointer; display: none;">LINK_ACCOUNT</button>
-                            <button onclick="toggleMenu('profile')" style="background: none; border: 1px solid var(--magenta); color: var(--magenta); padding: 5px; font-family: 'Orbitron'; font-size: 0.5rem; cursor: pointer;">EXIT_HUB</button>
-                        </div>
-                    </div>
-
-                    <div class="commander-card" style="padding: 15px; border-left-color: var(--magenta);">
-                        <div style="font-size: 0.6rem; color: var(--magenta);">RECENT_LOGS</div>
-                        <div id="q-logs" style="font-size: 0.55rem; color: #888; margin-top: 10px;">
-                            > Link established...<br>
-                            > Data synced...
+                        <div style="margin-top: 30px; display: flex; flex-direction: column; gap: 10px; width: 100%;">
+                            <button onclick="linkAccount()" id="link-btn-q" style="background: none; border: 1px solid var(--cyan); color: var(--cyan); padding: 10px; font-family: 'Orbitron'; font-size: 0.6rem; cursor: pointer; display: none;">LINK_ACCOUNT</button>
+                            <button onclick="toggleProfile()" style="background: var(--magenta); border: none; color: #fff; padding: 15px; font-family: 'Orbitron'; font-size: 0.8rem; font-weight: bold; cursor: pointer; letter-spacing: 2px;">CLOSE_NEURAL_LINK</button>
                         </div>
                     </div>
                 </div>
 
                 <!-- INVENTORY -->
-                <div class="inventory-section">
-                    <div class="inv-header" id="inv-header-q">CARGO_HOLD [0/16]</div>
-                    <div class="grid-container" id="inv-grid-q">
+                <div class="inventory-section-new">
+                    <div class="inv-header-new" id="inv-header-q">CARGO_HOLD [0/16]</div>
+                    <div class="grid-container-new" id="inv-grid-q">
                         <!-- Slots generated via JS -->
+                        <div id="item-hover-info">
+                            <div id="it-type-q" style="font-size: 0.5rem; color: var(--magenta); letter-spacing: 2px;">ITEM_TYPE</div>
+                            <div id="it-name-q" style="font-family: 'Orbitron'; font-size: 1.2rem; margin: 10px 0; color: #fff;">ITEM_NAME</div>
+                            <div id="it-text-q" style="font-size: 0.7rem; color: #aaa; line-height: 1.5;">Description analysis...</div>
+                        </div>
                     </div>
                 </div>
 
-                <!-- DETAIL TOOLTIP -->
-                <div id="item-desc-q" style="position: absolute; bottom: 60px; left: 50%; transform: translateX(-50%); width: 500px; background: rgba(0,0,0,0.8); border: 1px solid var(--cyan); padding: 20px; opacity: 0; transition: 0.4s; pointer-events: none; z-index: 200;">
-                    <div id="it-type-q" style="font-size: 0.6rem; color: var(--magenta);">NULL_POINTER</div>
-                    <div id="it-name-q" style="font-family: 'Orbitron'; font-size: 1.2rem; margin: 5px 0;">OBJECT_NAME</div>
-                    <div id="it-text-q" style="font-size: 0.8rem; color: rgba(255,255,255,0.6);">Детальный анализ объекта...</div>
+                <!-- ITEM INTERACTION MODAL -->
+                <div id="item-modal-q" style="position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%) scale(0.9); width: 350px; background: rgba(0, 10, 20, 0.95); border: 2px solid var(--cyan); padding: 30px; display: none; z-index: 1100; backdrop-filter: blur(20px); box-shadow: 0 0 50px rgba(0,242,255,0.3);">
+                    <div id="m-item-type" style="font-size: 0.6rem; color: var(--magenta); letter-spacing: 2px;">ITEM_TYPE</div>
+                    <div id="m-item-name" style="font-family: 'Orbitron'; font-size: 1.5rem; margin: 10px 0; color: #fff;">ITEM_NAME</div>
+                    <div id="m-item-desc" style="font-size: 0.8rem; color: #aaa; margin-bottom: 25px; line-height: 1.6;">Item description analysis...</div>
+                    
+                    <div style="display: flex; flex-direction: column; gap: 10px;">
+                        <button id="m-btn-use" style="background: var(--cyan); color: #000; border: none; padding: 12px; font-family: 'Orbitron'; font-weight: bold; cursor: pointer;">USE_ASSET</button>
+                        <button id="m-btn-sell" style="background: none; border: 1px solid #f80; color: #f80; padding: 12px; font-family: 'Orbitron'; font-weight: bold; cursor: pointer;">SELL_ASSET</button>
+                        <button onclick="document.getElementById('item-modal-q').style.display='none'" style="background: none; border: 1px solid #555; color: #555; padding: 12px; font-family: 'Orbitron'; cursor: pointer; margin-top: 10px;">CANCEL</button>
+                    </div>
                 </div>
             </div>
-        </div>
-
-        <div class="center-hud" style="position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); text-align: center; font-family: 'Orbitron'; pointer-events: none; z-index: 5;">
-            <div class="q-prompt" style="font-size: 0.7rem; letter-spacing: 10px; color: var(--cyan); animation: pulse 2s infinite; opacity: 0.6;">[ PRESS 'Q' TO INITIALIZE NEURAL LINK ]</div>
         </div>
 
         <div class="hud-hint">
@@ -227,15 +244,47 @@
             [H] Terminal | [Q] Cargo | [T] Leveling | [E] Evolution Tree
         </div>
 
-        <!-- ACHIEVEMENTS MODAL -->
-        <div id="achievements-overlay" class="overlay">
-            <div class="menu-window" style="max-width: 1000px; background: rgba(0,10,20,0.95);">
-                <h2 style="color:#0ff; text-align:center; letter-spacing:8px; text-shadow: 0 0 15px #0ff;">NEURAL ACHIEVEMENTS</h2>
-                <div id="ach-grid" style="display: grid; grid-template-columns: repeat(5, 1fr); gap: 20px; margin-top: 40px;">
-                    <!-- Medals will be rendered here -->
+        <!-- 3D ACHIEVEMENTS [R] -->
+        <div id="achievements-container">
+            <div class="overlay-ui">
+                <div class="header">
+                    <h1>VOID_ARCHIVE</h1>
+                    <p>SYSTEM_STATUS: ACTIVE_DECRYPTION</p>
                 </div>
-                <button onclick="toggleMenu('achievements')" style="margin-top:40px; width:100%; padding:15px; background:none; border:1px solid #0ff4; color:#0ff; cursor:pointer; font-family:'Orbitron';">BACK [R]</button>
+
+                <div class="controls-info">
+                    [LMB] : ANALYZE_CORE<br>
+                    [RMB] : NAVIGATE_GRID<br>
+                    [WHEEL] : QUANTUM_ZOOM<br>
+                    [R] : TERMINATE_LINK
+                </div>
+
+                <div class="hover-box" id="ach-hover-box">
+                    <div id="ach-hover-title" style="color: #0ff; font-size: 1.3rem; margin-bottom: 10px;">NODE_ID</div>
+                    <div style="height: 1px; background: #0ff3; margin-bottom: 15px;"></div>
+                    <div id="ach-hover-status" style="font-size: 0.7rem; color: #0f0;">READY</div>
+                </div>
+
+                <div class="coordinates" id="ach-coords-display">POS: X.00 Y.00 Z.00</div>
             </div>
+
+            <div id="ach-detail-modal">
+                <div class="close-btn" onclick="closeAchModal()">×</div>
+                <div id="ach-modal-title" class="modal-header">---</div>
+                <div id="ach-modal-rarity" class="rarity-tag">RARITY</div>
+                <div id="ach-modal-desc" style="color: #fff; font-size: 0.9rem; line-height: 1.8; margin-bottom: 30px; opacity: 0.8;">---</div>
+                
+                <div style="background: rgba(0, 255, 255, 0.03); border: 1px dashed #0ff4; padding: 20px; margin-bottom: 30px;">
+                    <span style="color: #0ff; font-size: 0.6rem; display: block; margin-bottom: 10px;">DATA_REWARD:</span>
+                    <span id="ach-modal-reward" style="color: #fff; font-size: 1rem;">---</span>
+                </div>
+                
+                <button id="ach-sync-btn" class="btn-sync" onclick="saveGameState(); createToast('DATA_SYNCED')">SYNC_DATA</button>
+            </div>
+
+            <div class="close-btn" onclick="toggleAchievements()" style="position: fixed; top: 40px; right: 40px; z-index: 5200; font-size: 3rem;">×</div>
+
+            <canvas id="ach-canvas"></canvas>
         </div>
 
         <!-- GRID EXPLORER [T] -->
@@ -355,13 +404,14 @@
         </div>
 
         <div id="auth-overlay" class="overlay">
-            <div class="holo-auth" style="max-width: 400px; text-align: center;">
+            <div id="auth-canvas-container" style="position: absolute; inset: 0; z-index: -1;"></div>
+            <div class="holo-auth" style="max-width: 450px; text-align: center; border-width: 2px; padding: 60px;">
                 <div class="holo-line"></div>
-                <h2 style="color:#0ff; margin-bottom: 20px; letter-spacing: 4px; text-shadow: 0 0 10px #0ff;">ACIS ACCESS</h2>
+                <h2 style="color:#0ff; margin-bottom: 30px; letter-spacing: 8px; text-shadow: 0 0 20px #0ff; font-size: 2.2rem;">SYSTEM_ACCESS</h2>
 
-                <div id="auth-selection" style="margin-bottom: 20px;">
-                    <button onclick="toggleAuthMode('login')" id="btn-mode-login" style="background:none; border:none; color:#0ff; cursor:pointer; font-family:'Orbitron'; font-size:0.7rem; border-bottom: 2px solid #0ff;">LOGIN</button>
-                    <button onclick="toggleAuthMode('reg')" id="btn-mode-reg" style="background:none; border:none; color:#0ff4; cursor:pointer; font-family:'Orbitron'; font-size:0.7rem; margin-left:20px;">REGISTER</button>
+                <div id="auth-selection" style="margin-bottom: 30px;">
+                    <button onclick="toggleAuthMode('login')" id="btn-mode-login" style="background:none; border:none; color:#0ff; cursor:pointer; font-family:'Orbitron'; font-size:0.9rem; border-bottom: 2px solid #0ff; letter-spacing: 3px;">LOGIN</button>
+                    <button onclick="toggleAuthMode('reg')" id="btn-mode-reg" style="background:none; border:none; color:#0ff4; cursor:pointer; font-family:'Orbitron'; font-size:0.9rem; margin-left:30px; letter-spacing: 3px;">REGISTER</button>
                 </div>
 
                 <div id="auth-inputs" style="margin-bottom: 20px; text-align: left;">
@@ -390,12 +440,12 @@
 
         <div id="ai-help-overlay" class="overlay">
             <div class="menu-window" style="max-width: 500px; height: 600px; display: flex; flex-direction: column;">
-                <h3 style="color:#0ff; text-align:center;">ACIS ASSISTANT</h3>
+                <h3 style="color:#0ff; text-align:center;">CORE ASSISTANT</h3>
                 <div id="ai-chat-box" style="flex:1; background:rgba(0,0,0,0.5); border:1px solid #0ff2; border-radius:10px; padding:15px; overflow-y:auto; font-size:0.7rem; color:#aaa; margin-bottom:15px;">
                     <div style="color:#0ff">KRONOS: Neural link active. How can I assist you?</div>
                 </div>
                 <div style="display:flex; gap:10px;">
-                    <input type="text" id="ai-input" placeholder="Query Acis System..." style="flex:1; background:#000; border:1px solid #0ff4; color:#fff; padding:10px; border-radius:4px; font-family:'Orbitron';">
+                    <input type="text" id="ai-input" placeholder="Query Neural System..." style="flex:1; background:#000; border:1px solid #0ff4; color:#fff; padding:10px; border-radius:4px; font-family:'Orbitron';">
                     <button onclick="askAI()" style="background:#0ff; border:none; color:#000; padding:10px 20px; font-weight:bold; cursor:pointer; border-radius:4px;">SEND</button>
                 </div>
                 <button onclick="toggleMenu('ai-help')" style="margin-top:15px; width:100%; background:none; border:1px solid #333; color:#555; cursor:pointer; font-size:0.6rem; padding:10px;">CLOSE</button>

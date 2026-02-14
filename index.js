@@ -29,6 +29,7 @@ const ITEMS = {
         ];
 
         // --- DATA STATE ---
+        let frameCount = 0;
         const corporations = [
             { id: 'neon', name: 'NEON CORP', price: 100, history: [100], volatility: 0.1, color: 0x00ffff },
             { id: 'alpha', name: 'ALPHA TECH', price: 250, history: [250], volatility: 0.05, color: 0xff00ff },
@@ -44,8 +45,9 @@ const ITEMS = {
             sp: 0,
             storageMax: 400,
             clickPower: 5,
-            costs: { click: 50, drone: 150, storage: 250, matter: 1000, plating: 500 },
+            costs: { click: 50, drone: 150, storage: 250, matter: 1000, plating: 500, inv: 500 },
             inventory: [], // Renamed from items
+            inventoryMax: 16,
             achievements: [],
             market: { "Scrap": 15, "Crystal": 60, "Dark Matter": 250, "Cyber Chip": 120 },
             drones: [], // Live drone meshes
@@ -151,7 +153,6 @@ const ITEMS = {
                 document.getElementById('auth-alt-methods').style.display = 'none';
                 document.getElementById('auth-main-btn').style.display = 'none';
                 document.getElementById('start-btn-container').style.display = 'block';
-
                 loadGameState();
             } else {
                 document.getElementById('auth-inputs').style.display = 'block';
@@ -159,8 +160,45 @@ const ITEMS = {
                 document.getElementById('auth-alt-methods').style.display = 'flex';
                 document.getElementById('auth-main-btn').style.display = 'block';
                 document.getElementById('start-btn-container').style.display = 'none';
+                initAuth3D();
             }
         });
+
+        let authRenderer, authScene, authCamera, authCore;
+        function initAuth3D() {
+            if (authRenderer) return;
+            const container = document.getElementById('auth-canvas-container');
+            authScene = new THREE.Scene();
+            authCamera = new THREE.PerspectiveCamera(75, window.innerWidth / window.innerHeight, 0.1, 1000);
+            authCamera.position.z = 10;
+
+            authRenderer = new THREE.WebGLRenderer({ antialias: true, alpha: true });
+            authRenderer.setSize(window.innerWidth, window.innerHeight);
+            container.appendChild(authRenderer.domElement);
+
+            const geo = new THREE.TorusKnotGeometry(4, 0.5, 100, 16);
+            const mat = new THREE.MeshPhongMaterial({ color: 0x00ffff, wireframe: true, emissive: 0x00ffff, emissiveIntensity: 0.5 });
+            authCore = new THREE.Mesh(geo, mat);
+            authScene.add(authCore);
+
+            const light = new THREE.PointLight(0x00ffff, 1, 100);
+            light.position.set(5, 5, 5);
+            authScene.add(light);
+            authScene.add(new THREE.AmbientLight(0x111111));
+
+            function animateAuth() {
+                if (firebase.auth().currentUser && !document.getElementById('auth-overlay').classList.contains('active')) {
+                    authRenderer.dispose();
+                    authRenderer = null;
+                    return;
+                }
+                requestAnimationFrame(animateAuth);
+                authCore.rotation.x += 0.005;
+                authCore.rotation.y += 0.01;
+                authRenderer.render(authScene, authCamera);
+            }
+            animateAuth();
+        }
 
         function runIntroAnimation() {
             const overlay = document.getElementById('auth-overlay');
@@ -196,7 +234,6 @@ const ITEMS = {
                         if (progress < duration) requestAnimationFrame(animateIntro);
                         else {
                             trans.style.display = 'none';
-                            createToast("ACIS SYSTEM ONLINE");
                         }
                     }
                     animateIntro();
@@ -221,6 +258,7 @@ const ITEMS = {
                     xp: state.xp,
                     level: state.level,
                     inventory: state.inventory,
+                    inventoryMax: state.inventoryMax,
                     costs: state.costs,
                     storageMax: state.storageMax,
                     clickPower: state.clickPower,
@@ -236,7 +274,7 @@ const ITEMS = {
                     authType: user.isAnonymous ? 'anonymous' : (user.providerData[0] ? user.providerData[0].providerId : 'email'),
                     email: user.email || 'none'
                 }, { merge: true });
-                console.log("Acis Sync Complete: " + state.profile.uid);
+                console.log("Neural Sync Complete: " + state.profile.uid);
             } catch (e) { console.error("Sync Error", e); }
         }
 
@@ -286,7 +324,8 @@ const ITEMS = {
                     state.xp = data.xp || 0;
                     state.level = data.level || 1;
                     state.inventory = data.inventory || data.items || [];
-                    state.costs = data.costs || state.costs;
+                    state.inventoryMax = data.inventoryMax || 16;
+                    state.costs = { ...state.costs, ...(data.costs || {}) };
                     state.storageMax = data.storageMax || state.storageMax;
                     state.clickPower = data.clickPower || state.clickPower;
                     state.profile = data.profile || state.profile;
@@ -318,8 +357,10 @@ const ITEMS = {
 
                     document.getElementById('profile-name-span').innerText = state.profile.name;
                     document.getElementById('profile-avatar-img').src = state.profile.avatar;
-                    document.getElementById('modal-avatar-img').src = state.profile.avatar;
-                    document.getElementById('display-id').innerText = state.profile.uid;
+                    const qAvatar = document.getElementById('q-avatar-img');
+                    if (qAvatar) qAvatar.style.backgroundImage = `url(${state.profile.avatar})`;
+                    const displayId = document.getElementById('display-id');
+                    if (displayId) displayId.innerText = "UID: " + state.profile.uid;
 
                     updateUI();
                     updateInventoryUI();
@@ -330,6 +371,15 @@ const ITEMS = {
                     saveGameState();
                 }
             }, e => console.error("Snapshot Error", e));
+        }
+
+        // --- HELPERS ---
+        function hasInventorySpace(count = 1) {
+            if (state.inventory.length + count > state.inventoryMax) {
+                createToast(`NOT ENOUGH SPACE (${state.inventory.length}/${state.inventoryMax})`);
+                return false;
+            }
+            return true;
         }
 
         // --- ENGINE ---
@@ -345,7 +395,7 @@ const ITEMS = {
         function init() {
             scene = new THREE.Scene();
             scene.background = new THREE.Color(0x00050a);
-            scene.fog = new THREE.FogExp2(0x00050a, 0.015);
+            scene.fog = new THREE.FogExp2(0x00050a, 0.005);
 
             camera = new THREE.PerspectiveCamera(65, window.innerWidth / window.innerHeight, 0.1, 2000);
             camera.position.set(0, 15, 35);
@@ -360,11 +410,11 @@ const ITEMS = {
             clock = new THREE.Clock();
 
             // Lighting
-            const amb = new THREE.AmbientLight(0x4040ff, 0.2);
+            const amb = new THREE.AmbientLight(0x4040ff, 0.6);
             amb.name = "AMBIENT";
             scene.add(amb);
 
-            const pLight = new THREE.PointLight(0x00ffff, 2, 150);
+            const pLight = new THREE.PointLight(0x00ffff, 6, 400);
             pLight.name = "MAIN_LIGHT";
             pLight.position.set(20, 30, 10);
             scene.add(pLight);
@@ -526,7 +576,7 @@ const ITEMS = {
             platform.add(stripe);
 
             // Grid
-            const grid = new THREE.GridHelper(500, 50, 0x004444, 0x001111);
+            const grid = new THREE.GridHelper(20000, 200, 0x004444, 0x001111);
             grid.position.y = -0.1;
             worldGroup.add(grid);
 
@@ -755,11 +805,13 @@ const ITEMS = {
 
             // Random Drone Drop Logic
             if (Math.random() < 0.001) { // 0.1% chance on click
-                const types = ['fragile', 'tank', 'scavenger', 'turbo'];
-                const type = types[Math.floor(Math.random()*types.length)];
-                state.inventory.push(type.charAt(0).toUpperCase() + type.slice(1) + " Drone");
-                createToast("RARE DROP: NEW DRONE FOUND!");
-                updateInventoryUI();
+                if (hasInventorySpace()) {
+                    const types = ['fragile', 'tank', 'scavenger', 'turbo'];
+                    const type = types[Math.floor(Math.random()*types.length)];
+                    state.inventory.push(type.charAt(0).toUpperCase() + type.slice(1) + " Drone");
+                    createToast("RARE DROP: NEW DRONE FOUND!");
+                    updateInventoryUI();
+                }
             }
 
             if (isSkillMode) {
@@ -813,10 +865,13 @@ const ITEMS = {
                 state.drones.forEach(d => { if(d.type === 'scavenger') scavMult += 0.2; });
 
                 if(Math.random() < 0.15 * scavMult) {
-                    const keys = Object.keys(state.market);
-                    const found = keys[Math.floor(Math.random()*keys.length)];
-                    state.inventory.push(found);
-                    createToast(`FOUND: ${found.toUpperCase()}`);
+                    if (hasInventorySpace()) {
+                        const keys = Object.keys(state.market);
+                        const found = keys[Math.floor(Math.random()*keys.length)];
+                        state.inventory.push(found);
+                        updateInventoryUI();
+                        createToast(`FOUND: ${found.toUpperCase()}`);
+                    }
                 }
                 updateUI();
             }
@@ -920,6 +975,7 @@ const ITEMS = {
         }
 
         function onKeyDown(e) {
+            if (e.target.tagName === 'INPUT' || e.target.tagName === 'TEXTAREA') return;
             keys[e.code] = true;
             const key = e.key.toLowerCase();
 
@@ -1024,32 +1080,51 @@ const ITEMS = {
             if (type === 'nick_color') cost = 1000000;
 
             if(state.energy >= cost) {
-                state.energy -= cost;
                 if(type === 'click') {
+                    state.energy -= cost;
                     state.clickPower += 5;
                     state.costs.click = Math.round(state.costs.click * 1.8);
                 } else if(type === 'drone') {
-                    spawnDrone();
-                    state.costs.drone = Math.round(state.costs.drone * 1.7);
+                    if (hasInventorySpace()) {
+                        state.energy -= cost;
+                        state.inventory.push("Basic Drone");
+                        state.costs.drone = Math.round(state.costs.drone * 1.7);
+                        updateInventoryUI();
+                    } else return;
                 } else if(type === 'storage') {
+                    state.energy -= cost;
                     state.storageMax += 5000;
                     addModule();
                     state.costs.storage = Math.round(state.costs.storage * 1.35);
                 } else if(type === 'matter') {
+                    state.energy -= cost;
                     state.costs.matter = Math.round(state.costs.matter * 2.5);
                     createToast("MATTER CORE UPGRADED");
                 } else if(type === 'plating') {
+                    state.energy -= cost;
                     state.costs.plating = Math.round(state.costs.plating * 2);
                     createToast("PLATING REINFORCED");
                 } else if(type === 'vip_status') {
+                    state.energy -= cost;
                     state.isVIP = true;
                     createToast("VIP PLATINUM STATUS ACQUIRED!");
                 } else if(type === 'vip_drone') {
-                    spawnDrone('vip');
-                    createToast("VIP GOLDEN DRONE DEPLOYED!");
+                    if (hasInventorySpace()) {
+                        state.energy -= cost;
+                        state.inventory.push("VIP Drone");
+                        updateInventoryUI();
+                        createToast("VIP GOLDEN DRONE ACQUIRED!");
+                    } else return;
                 } else if(type === 'nick_color') {
+                    state.energy -= cost;
                     state.nickColor = document.getElementById('nick-color-picker').value;
                     createToast("NEON COLOR APPLIED");
+                } else if(type === 'inv') {
+                    state.energy -= cost;
+                    state.inventoryMax += 4;
+                    state.costs.inv = Math.round(state.costs.inv * 2.5);
+                    createToast("CARGO CAPACITY INCREASED");
+                    updateInventoryUI();
                 }
                 updateUI();
             } else if (type === 'void' && state.matter >= 5) {
@@ -1079,11 +1154,41 @@ const ITEMS = {
             saveGameState();
         }
 
+        function openItemModal(idx) {
+            const name = state.inventory[idx];
+            const item = ITEMS[name] || { type: 'trash', desc: 'tactical_data_missing' };
+            const modal = document.getElementById('item-modal-q');
+            
+            document.getElementById('m-item-name').innerText = name.toUpperCase();
+            document.getElementById('m-item-type').innerText = "ASSET_TYPE: " + item.type.toUpperCase();
+            document.getElementById('m-item-desc').innerText = item.desc;
+            
+            const useBtn = document.getElementById('m-btn-use');
+            useBtn.style.display = 'block';
+            useBtn.style.opacity = "1";
+
+            if (item.type === 'drone') {
+                useBtn.innerText = "DEPLOY_UNIT";
+            } else if (item.type === 'usable') {
+                useBtn.innerText = "ACTIVATE_ASSET";
+            } else {
+                useBtn.style.display = 'none';
+            }
+            
+            useBtn.onclick = () => { useItem(idx); modal.style.display='none'; };
+            document.getElementById('m-btn-sell').onclick = () => { sellItem(idx); modal.style.display='none'; };
+            
+            modal.style.display = 'block';
+            modal.style.animation = 'modal-slide-in 0.3s forwards';
+        }
+
         function sellItem(idx) {
             const name = state.inventory[idx];
             const item = ITEMS[name];
-            state.energy += item ? item.value : 10;
+            const val = item ? item.value : 10;
+            state.energy += val;
             state.inventory.splice(idx, 1);
+            createToast(`SOLD: ${name} (+${val} NRG)`);
             updateInventoryUI();
             updateUI();
             saveGameState();
@@ -1092,12 +1197,21 @@ const ITEMS = {
         let isQMenuOpen = false;
         function toggleProfile() {
             const overlay = document.getElementById('profile-overlay');
+            const prof = document.querySelector('.profile-section-new');
+            const inv = document.querySelector('.inventory-section-new');
+            
             isQMenuOpen = overlay.style.display !== 'flex';
             overlay.style.display = isQMenuOpen ? 'flex' : 'none';
 
             if (isQMenuOpen) {
+                setTimeout(() => {
+                    prof.classList.add('active');
+                    inv.classList.add('active');
+                }, 10);
                 document.body.classList.add('ui-active');
-                document.getElementById('q-nick-display').innerText = state.profile.name;
+                if (document.getElementById('q-nick-input')) {
+                    document.getElementById('q-nick-input').value = state.profile.name;
+                }
                 document.getElementById('q-avatar-img').style.backgroundImage = `url(${state.profile.avatar})`;
                 const user = firebase.auth().currentUser;
                 if (user) {
@@ -1106,6 +1220,8 @@ const ITEMS = {
                 updateInventoryUI();
                 initQMenu3D();
             } else {
+                prof.classList.remove('active');
+                inv.classList.remove('active');
                 document.body.classList.remove('ui-active');
                 if (qMenuRenderer) {
                     qMenuRenderer.dispose();
@@ -1115,76 +1231,96 @@ const ITEMS = {
             }
         }
 
-        let qMenuRenderer, qMenuScene, qMenuCamera, qMenuCore;
+        let qMenuRenderer, qMenuScene, qMenuCamera, qMenuCore, qMenuParticles;
         function initQMenu3D() {
             if (qMenuRenderer) return;
             const container = document.getElementById('q-canvas-container');
             qMenuScene = new THREE.Scene();
             qMenuCamera = new THREE.PerspectiveCamera(75, window.innerWidth / window.innerHeight, 0.1, 1000);
-            qMenuCamera.position.z = 5;
+            qMenuCamera.position.set(0, 0, 10);
 
             qMenuRenderer = new THREE.WebGLRenderer({ antialias: true, alpha: true });
             qMenuRenderer.setSize(window.innerWidth, window.innerHeight);
             container.appendChild(qMenuRenderer.domElement);
 
-            const geo = new THREE.IcosahedronGeometry(2, 1);
+            const geo = new THREE.IcosahedronGeometry(4, 1);
             const mat = new THREE.MeshPhongMaterial({
-                color: 0x00f2ff, wireframe: true, emissive: 0x00f2ff, emissiveIntensity: 0.5
+                color: 0x00f2ff, wireframe: true, emissive: 0x00f2ff, emissiveIntensity: 0.8, transparent: true, opacity: 0.4
             });
             qMenuCore = new THREE.Mesh(geo, mat);
             qMenuScene.add(qMenuCore);
 
-            const light = new THREE.PointLight(0x00f2ff, 1, 100);
+            const innerGeo = new THREE.TorusKnotGeometry(1.5, 0.4, 100, 16);
+            const innerMat = new THREE.MeshStandardMaterial({ color: 0xff00ff, emissive: 0xff00ff, emissiveIntensity: 1.5, wireframe: true });
+            const innerCore = new THREE.Mesh(innerGeo, innerMat);
+            qMenuCore.add(innerCore);
+
+            // Floating particles
+            const pCount = 400;
+            const pGeo = new THREE.BufferGeometry();
+            const pPos = new Float32Array(pCount * 3);
+            for(let i=0; i<pCount*3; i++) pPos[i] = (Math.random() - 0.5) * 30;
+            pGeo.setAttribute('position', new THREE.BufferAttribute(pPos, 3));
+            qMenuParticles = new THREE.Points(pGeo, new THREE.PointsMaterial({ color: 0x8800ff, size: 0.08, transparent: true, opacity: 0.6 }));
+            qMenuScene.add(qMenuParticles);
+
+            const light = new THREE.PointLight(0x00f2ff, 2, 100);
             light.position.set(5, 5, 5);
             qMenuScene.add(light);
+            const light2 = new THREE.PointLight(0xff00ff, 2, 100);
+            light2.position.set(-5, -5, 5);
+            qMenuScene.add(light2);
             qMenuScene.add(new THREE.AmbientLight(0x111111));
 
             function animateQ() {
                 if (!isQMenuOpen) return;
                 requestAnimationFrame(animateQ);
-                qMenuCore.rotation.y += 0.01;
-                qMenuCore.rotation.z += 0.005;
+                const time = Date.now() * 0.001;
+                qMenuCore.rotation.y += 0.005;
+                qMenuCore.rotation.z += 0.003;
+                qMenuCore.position.y = Math.sin(time) * 0.2;
+                
+                qMenuParticles.rotation.y += 0.001;
+                const positions = qMenuParticles.geometry.attributes.position.array;
+                for(let i=0; i<positions.length; i+=3) {
+                    positions[i+1] += Math.sin(time + i) * 0.002;
+                }
+                qMenuParticles.geometry.attributes.position.needsUpdate = true;
+
                 qMenuRenderer.render(qMenuScene, qMenuCamera);
             }
             animateQ();
         }
 
-        function setAvatar(url) {
-            document.getElementById('avatar-input').value = url;
-            document.getElementById('modal-avatar-img').src = url;
+        function updateProfileName(name) {
+            if (!name) return;
+            state.profile.name = name;
+            document.getElementById('profile-name-span').innerText = name;
+            createToast("NICKNAME UPDATED");
+            saveGameState();
         }
 
-        function uploadAvatar(input) {
+        function setProfileAvatar(url) {
+            state.profile.avatar = url;
+            document.getElementById('profile-avatar-img').src = url;
+            document.getElementById('q-avatar-img').style.backgroundImage = `url(${url})`;
+            createToast("AVATAR UPDATED");
+            saveGameState();
+        }
+
+        function uploadProfileAvatar(input) {
             const file = input.files[0];
             if (!file) return;
             const reader = new FileReader();
             reader.onload = (e) => {
-                setAvatar(e.target.result);
-                createToast("AVATAR LOADED");
+                setProfileAvatar(e.target.result);
             };
             reader.readAsDataURL(file);
         }
 
-        async function updateProfile() {
-            state.profile.name = document.getElementById('nick-input').value || "Player";
-            state.profile.avatar = document.getElementById('avatar-input').value || "https://via.placeholder.com/150";
-
-            document.getElementById('profile-name-span').innerText = state.profile.name;
-            document.getElementById('profile-avatar-img').src = state.profile.avatar;
-            document.getElementById('modal-avatar-img').src = state.profile.avatar;
-
-            // Optional: Save avatar to public gallery collection
-            if (state.profile.avatar.startsWith('data:')) {
-                const user = firebase.auth().currentUser;
-                await db.collection("avatars").doc(user.uid).set({
-                    url: state.profile.avatar,
-                    owner: state.profile.name
-                });
-            }
-
-            createToast("NEURAL DATA UPDATED");
-            saveGameState();
-        }
+        function setAvatar(url) { setProfileAvatar(url); }
+        function uploadAvatar(input) { uploadProfileAvatar(input); }
+        async function updateProfile() { /* Legacy support */ }
 
         function showTab(tab) {
             document.querySelectorAll('.tab-content').forEach(c => c.style.display = 'none');
@@ -1193,85 +1329,235 @@ const ITEMS = {
             document.getElementById('tab-btn-' + tab).classList.add('active');
         }
 
+        let achScene, achCamera, achRenderer, achClock;
+        let achObjects = [];
+        let achStars;
+        let isAchVisible = false;
+        let achRaycaster = new THREE.Raycaster();
+        let achMouse = new THREE.Vector2();
+        let achSelectedNode = null;
+        let isAchRightMouseDown = false;
+        let achCamTargetPos = new THREE.Vector3(0, 0, 25);
+
         function toggleAchievements() {
-            const overlay = document.getElementById('achievements-overlay');
-            const isOpening = overlay.style.display !== 'flex';
-            overlay.style.display = isOpening ? 'flex' : 'none';
-            if (isOpening) renderAchievementGrid();
-        }
-
-        function renderAchievementGrid() {
-            const grid = document.getElementById('ach-grid');
-            grid.innerHTML = '';
-            ACHIEVEMENTS.forEach(ach => {
-                const isUnlocked = state.achievements.includes(ach.id);
-                const div = document.createElement('div');
-                div.style.cssText = `background:rgba(0,255,255,${isUnlocked ? '0.1' : '0.02'}); border:1px solid ${isUnlocked ? '#0ff' : '#333'}; padding:15px; border-radius:12px; text-align:center; transition:0.3s; cursor:pointer; position:relative;`;
-                div.innerHTML = `
-                    <div id="medal-${ach.id}" style="height:100px; width:100px; margin:0 auto 10px;"></div>
-                    <b style="color:${isUnlocked ? '#0ff' : '#555'}; font-size:0.6rem;">${ach.title}</b>
-                    <div class="ach-detail" style="display:none; position:absolute; top:110%; left:0; right:0; background:rgba(0,10,20,0.95); border:1px solid #0ff; padding:10px; z-index:100; font-size:0.6rem; text-align:left; backdrop-filter:blur(10px); box-shadow:0 0 20px #0ff4;">
-                        <b style="color:#0ff; text-transform:uppercase;">${ach.title}</b><br>
-                        <p style="margin:5px 0; color:#aaa;">${ach.desc}</p>
-                        <span style="color:${isUnlocked ? '#0f0' : '#f00'}; font-weight:bold;">${isUnlocked ? '✓ SECURED' : '⚠ ENCRYPTED'}</span>
-                    </div>
-                `;
-                div.onclick = (e) => {
-                    const detail = div.querySelector('.ach-detail');
-                    const isVisible = detail.style.display === 'block';
-                    document.querySelectorAll('.ach-detail').forEach(d => d.style.display = 'none');
-                    detail.style.display = isVisible ? 'none' : 'block';
-                };
-                grid.appendChild(div);
-
-                initMedal3D(`medal-${ach.id}`, ach.id, isUnlocked);
-            });
-        }
-
-        function initMedal3D(containerId, id, unlocked) {
-            const container = document.getElementById(containerId);
-            if (!container) return;
-            const sceneMedal = new THREE.Scene();
-            const cameraMedal = new THREE.PerspectiveCamera(50, 1, 0.1, 100);
-            cameraMedal.position.z = 4;
-            const rendererMedal = new THREE.WebGLRenderer({ antialias: true, alpha: true });
-            rendererMedal.setSize(100, 100);
-            container.appendChild(rendererMedal.domElement);
-
-            let medal;
-            const color = unlocked ? 0xffd700 : 0x333333;
-
-            // Different shapes for different achievements
-            if (id.includes('click')) {
-                medal = new THREE.Mesh(new THREE.IcosahedronGeometry(1.2, 0), new THREE.MeshStandardMaterial({color, wireframe:!unlocked}));
-            } else if (id.includes('rich') || id.includes('billionaire')) {
-                medal = new THREE.Mesh(new THREE.OctahedronGeometry(1.2, 0), new THREE.MeshStandardMaterial({color, wireframe:!unlocked}));
+            isAchVisible = !isAchVisible;
+            const container = document.getElementById('achievements-container');
+            container.style.display = isAchVisible ? 'block' : 'none';
+            
+            if (isAchVisible) {
+                document.body.classList.add('ui-active');
+                if (!achScene) initAch3D();
+                achCamTargetPos.set(0, 0, 50);
+                setTimeout(() => achCamTargetPos.z = 25, 100);
             } else {
-                medal = new THREE.Mesh(new THREE.TorusKnotGeometry(0.8, 0.3, 64, 8), new THREE.MeshStandardMaterial({color, wireframe:!unlocked}));
+                document.body.classList.remove('ui-active');
+                closeAchModal();
             }
+        }
 
-            if (unlocked) {
-                medal.material.emissive = new THREE.Color(color);
-                medal.material.emissiveIntensity = 0.5;
-            }
-            sceneMedal.add(medal);
+        function initAch3D() {
+            if (achScene) return;
+            achScene = new THREE.Scene();
+            achCamera = new THREE.PerspectiveCamera(55, window.innerWidth / window.innerHeight, 0.1, 3000);
+            achRenderer = new THREE.WebGLRenderer({ 
+                canvas: document.getElementById('ach-canvas'), 
+                antialias: true, alpha: true 
+            });
+            achRenderer.setSize(window.innerWidth, window.innerHeight);
+            achRenderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+            achClock = new THREE.Clock();
 
-            const light = new THREE.PointLight(0xffffff, 2);
-            light.position.set(2, 2, 5);
-            sceneMedal.add(light);
-            sceneMedal.add(new THREE.AmbientLight(0x404040, 1));
+            // Lighting
+            const mainLight = new THREE.DirectionalLight(0xffffff, 1.2);
+            mainLight.position.set(10, 20, 15);
+            achScene.add(mainLight);
+            achScene.add(new THREE.AmbientLight(0x4400ff, 0.2));
 
-            function animateMedal() {
-                if (document.getElementById('achievements-overlay').style.display === 'none') {
-                    rendererMedal.dispose();
-                    return;
+            // Map Achievements to Objects
+            ACHIEVEMENTS.forEach((data, i) => {
+                const isUnlocked = state.achievements.includes(data.id);
+                const node = new THREE.Group();
+                
+                let geom;
+                if(data.type === 'click') geom = new THREE.OctahedronGeometry(1.5, 0);
+                else if(data.type === 'energy') geom = new THREE.TorusGeometry(1, 0.4, 16, 40);
+                else if(data.type === 'matter') geom = new THREE.TorusKnotGeometry(0.9, 0.3, 100, 16);
+                else geom = new THREE.IcosahedronGeometry(1.5, 1);
+
+                const color = isUnlocked ? 0x8800ff : 0x111111;
+                const mat = new THREE.MeshStandardMaterial({
+                    color: color,
+                    metalness: 1,
+                    roughness: 0.1,
+                    wireframe: !isUnlocked,
+                    emissive: isUnlocked ? color : 0x000000,
+                    emissiveIntensity: 0.6
+                });
+
+                const mesh = new THREE.Mesh(geom, mat);
+                node.add(mesh);
+
+                if(isUnlocked) {
+                    const ring = new THREE.Mesh(
+                        new THREE.TorusGeometry(2.2, 0.05, 8, 100),
+                        new THREE.MeshBasicMaterial({ color: 0x00ffff, transparent: true, opacity: 0.4 })
+                    );
+                    ring.rotation.x = Math.random() * Math.PI;
+                    node.add(ring);
+                    node.ring = ring;
+
+                    const innerCore = new THREE.Mesh(
+                        new THREE.SphereGeometry(0.4, 16, 16),
+                        new THREE.MeshBasicMaterial({ color: 0xffffff })
+                    );
+                    node.add(innerCore);
                 }
-                requestAnimationFrame(animateMedal);
-                medal.rotation.y += 0.02;
-                medal.rotation.x += 0.01;
-                rendererMedal.render(sceneMedal, cameraMedal);
+
+                const shield = new THREE.Mesh(geom, new THREE.MeshBasicMaterial({ color: 0x8800ff, wireframe: true, transparent: true, opacity: 0.08 }));
+                shield.scale.setScalar(1.5);
+                node.add(shield);
+                node.shield = shield;
+
+                const angle = (i / ACHIEVEMENTS.length) * Math.PI * 2;
+                const radius = 15 + Math.random() * 10;
+                node.position.set(
+                    Math.cos(angle) * radius,
+                    (Math.random() - 0.5) * 20,
+                    Math.sin(angle) * radius
+                );
+
+                node.userData = { ...data, unlocked: isUnlocked };
+                achObjects.push(node);
+                achScene.add(node);
+            });
+
+            // Starfield
+            const starCount = 8000;
+            const starGeom = new THREE.BufferGeometry();
+            const starPos = new Float32Array(starCount * 3);
+            for(let i=0; i<starCount*3; i++) starPos[i] = (Math.random() - 0.5) * 600;
+            starGeom.setAttribute('position', new THREE.BufferAttribute(starPos, 3));
+            achStars = new THREE.Points(starGeom, new THREE.PointsMaterial({ color: 0x00ffff, size: 0.2, transparent: true, opacity: 0.7, blending: THREE.AdditiveBlending }));
+            achScene.add(achStars);
+
+            window.addEventListener('mousedown', onAchMouseDown);
+            window.addEventListener('mousemove', onAchMouseMove);
+            window.addEventListener('mouseup', () => isAchRightMouseDown = false);
+            window.addEventListener('wheel', onAchWheel);
+
+            animateAch();
+        }
+
+        function closeAchModal() {
+            document.getElementById('ach-detail-modal').classList.remove('active');
+            achSelectedNode = null;
+        }
+
+        function showAchDetail(data) {
+            achSelectedNode = data;
+            const m = document.getElementById('ach-detail-modal');
+            document.getElementById('ach-modal-title').innerText = data.title;
+            document.getElementById('ach-modal-desc').innerText = data.desc;
+            document.getElementById('ach-modal-reward').innerText = data.reward || "500 NRG Data Pack";
+            document.getElementById('ach-modal-rarity').innerText = "STATUS: " + (data.unlocked ? "DECRYPTED" : "ENCRYPTED");
+            m.classList.add('active');
+        }
+
+        let achAnimFrame;
+        function animateAch() {
+            if (!achScene || !isAchVisible) {
+                cancelAnimationFrame(achAnimFrame);
+                return;
             }
-            animateMedal();
+            achAnimFrame = requestAnimationFrame(animateAch);
+
+            const time = achClock.getElapsedTime();
+            achObjects.forEach((obj, i) => {
+                obj.rotation.y += 0.01;
+                obj.rotation.z += 0.005;
+                obj.position.y += Math.sin(time + i) * 0.01;
+                
+                if(obj.ring) {
+                    obj.ring.rotation.y -= 0.02;
+                    obj.ring.scale.setScalar(1 + Math.sin(time * 2) * 0.1);
+                }
+                if(obj.shield) {
+                    obj.shield.rotation.x += 0.005;
+                    obj.shield.material.opacity = 0.05 + Math.sin(time * 3) * 0.02;
+                }
+            });
+
+            achStars.rotation.y += 0.0002;
+            const p = achStars.geometry.attributes.position.array;
+            for(let i=0; i<p.length; i+=3) {
+                p[i+2] += 0.05; // Fly forward
+                if(p[i+2] > 100) p[i+2] = -100;
+            }
+            achStars.geometry.attributes.position.needsUpdate = true;
+
+            achCamera.position.lerp(achCamTargetPos, 0.08);
+            
+            document.getElementById('ach-coords-display').innerText = 
+                `POS: X.${Math.round(achCamera.position.x)} Y.${Math.round(achCamera.position.y)} Z.${Math.round(achCamera.position.z)}`;
+
+            const hBox = document.getElementById('ach-hover-box');
+            if (frameCount % 3 === 0) {
+                achRaycaster.setFromCamera(achMouse, achCamera);
+                const intersects = achRaycaster.intersectObjects(achObjects, true);
+
+                if (intersects.length > 0 && !achSelectedNode) {
+                    let obj = intersects[0].object;
+                    while(obj.parent && !obj.userData.title) obj = obj.parent;
+                    if(obj.userData.title) {
+                        obj.scale.lerp(new THREE.Vector3(1.3, 1.3, 1.3), 0.1);
+                        document.getElementById('ach-hover-title').innerText = obj.userData.title;
+                        document.getElementById('ach-hover-status').innerText = obj.userData.unlocked ? ">> DECRYPTED" : ">> ACCESS_DENIED";
+                        document.getElementById('ach-hover-status').style.color = obj.userData.unlocked ? "#0f0" : "#f33";
+                        hBox.classList.add('active');
+                    }
+                } else {
+                    achObjects.forEach(o => o.scale.lerp(new THREE.Vector3(1, 1, 1), 0.1));
+                    hBox.classList.remove('active');
+                }
+            }
+
+            achRenderer.render(achScene, achCamera);
+        }
+
+        function onAchMouseDown(e) {
+            if (!isAchVisible) return;
+            if (e.button === 0) {
+                achRaycaster.setFromCamera(achMouse, achCamera);
+                const intersects = achRaycaster.intersectObjects(achObjects, true);
+                if (intersects.length > 0) {
+                    let obj = intersects[0].object;
+                    while(obj.parent && !obj.userData.title) obj = obj.parent;
+                    showAchDetail(obj.userData);
+                    achCamTargetPos.set(obj.position.x, obj.position.y, obj.position.z + 8);
+                }
+            } else if (e.button === 2) isAchRightMouseDown = true;
+        }
+
+        function onAchMouseMove(e) {
+            if (!isAchVisible) return;
+            const nx = (e.clientX / window.innerWidth) * 2 - 1;
+            const ny = -(e.clientY / window.innerHeight) * 2 + 1;
+
+            if (isAchRightMouseDown) {
+                const dx = (nx - achMouse.x) * 20;
+                const dy = (ny - achMouse.y) * 20;
+                const right = new THREE.Vector3().setFromMatrixColumn(achCamera.matrix, 0);
+                const up = new THREE.Vector3().setFromMatrixColumn(achCamera.matrix, 1);
+                achCamTargetPos.add(right.multiplyScalar(-dx)).add(up.multiplyScalar(-dy));
+            }
+            achMouse.x = nx; achMouse.y = ny;
+        }
+
+        function onAchWheel(e) {
+            if (!isAchVisible) return;
+            const dir = new THREE.Vector3();
+            achCamera.getWorldDirection(dir);
+            achCamTargetPos.add(dir.multiplyScalar(-e.deltaY * 0.02));
         }
 
         function checkAchievements() {
@@ -1288,8 +1574,12 @@ const ITEMS = {
                     state.achievements.push(ach.id);
                     createToast(`ACHIEVEMENT UNLOCKED: ${ach.title}`);
                     if (ach.reward) {
-                        state.inventory.push(ach.reward);
-                        createToast(`REWARD ADDED TO CARGO`);
+                        if (hasInventorySpace()) {
+                            state.inventory.push(ach.reward);
+                            createToast(`REWARD ADDED TO CARGO`);
+                        } else {
+                            createToast(`ACHIEVEMENT UNLOCKED: ${ach.title}. SPACE FULL, REWARD LOST!`);
+                        }
                     }
                     saveGameState();
                 }
@@ -1303,13 +1593,36 @@ const ITEMS = {
         let currentTLevelZ = 80;
         const T_SPACING = 40;
 
-        const LEVEL_DATA = Array.from({ length: 50 }, (_, i) => ({
-            name: `ZONE_AX-${(i+1).toString().padStart(2, '0')}`,
-            desc: `Strategic point ${i+1}. Recon drones report high-value tech signatures. Heavy automated defense grid active.`,
-            diff: i < 15 ? 'STABLE' : (i < 35 ? 'DANGEROUS' : 'CRITICAL'),
-            color: i < 15 ? 0x00ffff : (i < 35 ? 0x8800ff : 0xff0055),
-            rewards: { xp: (i + 1) * 300, cr: (i + 1) * 120, item: i % 10 === 0 ? "Void Core" : "Scrap" }
-        }));
+        const LEVEL_NAMES = [
+            "Silicon Desert", "Neon Outpost", "Carbon Ridge", "Binary Void", "Quantum Core",
+            "Data Stream", "Cyber Peaks", "Neural Network", "Logic Gates", "Memory Lane",
+            "Buffer Zone", "Stack Overflow", "Packet Loss", "Ethernet Shore", "Cloud Nine",
+            "Root Directory", "Kernel Shell", "Terminal Point", "Proxy Hub", "Quantum Exchange Gateway",
+            "Firewall Wall", "Protocol Plains", "Signal Tower", "Voltage Valley", "Current Creek",
+            "Ampere Arch", "Ohm Oasis", "Hertz Hill", "Watt Wasteland", "Faraday Field",
+            "Tesla Track", "Maxwell Moor", "Bohr Basin", "Plank Path", "Fermi Forest",
+            "Dirac Dale", "Heisenberg Hollow", "Schrodinger Shift", "Hawking Horizon", "Penrose Point",
+            "Turing Trail", "Von Neumann Valley", "Shannon Stream", "Loveless Lane", "Babbage Base",
+            "Hopper Hub", "Knuth Knot", "Dijkstra Drive", "Stallman Street", "Torvalds Town"
+        ];
+
+        const LEVEL_DATA = Array.from({ length: 50 }, (_, i) => {
+            const name = LEVEL_NAMES[i] || `ZONE_AX-${(i+1).toString().padStart(2, '0')}`;
+            let desc = `tactical_analysis: High energy density detected in ${name}. Resource harvesting highly recommended.`;
+            if (i === 19) desc = "CRITICAL UNLOCK: QUANTUM EXCHANGE SYSTEM ONLINE! Level 20 authorization granted. Use [M] to initialize peer-to-peer item trading protocols.";
+            
+            return {
+                name: name,
+                desc: desc,
+                diff: i < 10 ? 'STABLE' : (i < 20 ? 'ACTIVE' : (i < 35 ? 'DANGEROUS' : 'CRITICAL')),
+                color: i < 10 ? 0x00ffff : (i < 20 ? 0x00ff88 : (i < 35 ? 0x8800ff : 0xff0055)),
+                rewards: { 
+                    xp: (i + 1) * 750, 
+                    cr: (i + 1) * 450, 
+                    item: i % 10 === 0 ? "Overdrive Core" : (i % 5 === 0 ? "Ancient Tech" : (i % 2 === 0 ? "Crystal" : "Scrap"))
+                }
+            };
+        });
 
         function toggleLeveling() {
             const overlay = document.getElementById('level-overlay');
@@ -1368,9 +1681,13 @@ const ITEMS = {
             tMenuScene.add(new THREE.PointLight(0xffffff, 1, 100));
             tMenuScene.add(new THREE.AmbientLight(0x404040));
 
+        let tAnimFrame;
             function animateT() {
-                if (!isTMenuOpen) return;
-                requestAnimationFrame(animateT);
+            if (!isTMenuOpen || !tMenuRenderer) {
+                cancelAnimationFrame(tAnimFrame);
+                return;
+            }
+            tAnimFrame = requestAnimationFrame(animateT);
                 const time = tMenuClock.getElapsedTime();
                 currentTLevelZ += (targetTLevelZ - currentTLevelZ) * 0.06;
                 tMenuCamera.position.z = currentTLevelZ;
@@ -1560,6 +1877,15 @@ const ITEMS = {
                 const trade = doc.data();
                 renderExchangeUI(trade);
 
+                if (trade.tradeError) {
+                    const user = firebase.auth().currentUser;
+                    if (trade.tradeError.by === user.uid) {
+                        createToast(trade.tradeError.msgSelf);
+                    } else {
+                        createToast(trade.tradeError.msgOther);
+                    }
+                }
+
                 if (trade.status === "completed") {
                     createToast("EXCHANGE COMPLETED");
                     finishExchange(trade);
@@ -1693,7 +2019,29 @@ const ITEMS = {
             const user = firebase.auth().currentUser;
             const isOfferer = trade.offerer === user.uid;
 
-            const update = {};
+            const myConfirmed = isOfferer ? trade.offererConfirmed : trade.receiverConfirmed;
+            const myReceivedItems = isOfferer ? trade.receiverItems : trade.offererItems;
+
+            if (!myConfirmed) { // Trying to confirm
+                const totalAfter = state.inventory.length + myReceivedItems.length;
+                if (totalAfter > state.inventoryMax) {
+                    const diff = totalAfter - state.inventoryMax;
+                    const msgSelf = `У ВАС НЕ ХВАТАЕТ МЕСТА! ОСВОБОДИТЕ: ${diff}`;
+                    const msgOther = `У ДАННОГО ИГРОКА НЕТУ МЕСТА В ИНВЕНТАРЕ (${diff})`;
+                    
+                    createToast(msgSelf);
+                    await tradeRef.update({
+                        tradeError: {
+                            by: user.uid,
+                            msgSelf: msgSelf,
+                            msgOther: msgOther
+                        }
+                    });
+                    return;
+                }
+            }
+
+            const update = { tradeError: null };
             if (isOfferer) {
                 update.offererConfirmed = !trade.offererConfirmed;
             } else {
@@ -1751,16 +2099,16 @@ const ITEMS = {
                         "Authorization": "Bearer " + GROQ_API_KEY
                     },
                     body: JSON.stringify({
-                        model: "llama3-8b-8192",
+                        model: "llama-3.1-8b-instant",
                         messages: [
-                            { role: "system", content: "You are KRONOS, the high-level diagnostic AI of 'Acis System'. \nYour persona: Professional, slightly clinical, extremely helpful but strictly mission-oriented.\nGame Context:\n- NRG (Energy): Harvested from Core or Drones. Current: " + state.energy + ".\n- Drones: Basic, Mega, Fragile, Tank, Scavenger, Turbo, VIP. VIP drones have 10M HP.\n- Combat: Select drones to attack Settlements (spawned > 600m away).\n- Trading (M): Real-time Firestore exchange board. Requires Level 20.\n- Ascension: Reset for Antimatter multipliers.\n- VIP Status: $1B NRG. Exclusive badge and drones.\n- Stock Market: Invest NRG in corporations to bypass storage limits." },
+                            { role: "system", content: "You are KRONOS, the primary tactical intelligence of the Core System. \nYour persona: Cold, professional, highly analytical, mission-critical. You assist the operator with resource management and strategic decisions.\nGame Context:\n- NRG (Energy): Primary resource. Current: " + state.energy + ".\n- Cargo: " + state.inventory.join(', ') + ".\n- Authorization Level: " + state.level + ".\n- Drone Fleet: Basic, Mega, Fragile, Tank, Scavenger, Turbo, VIP. VIP units have infinite durability.\n- Tactical Operations: Deploy drones to neutralize Settlements (>600m away).\n- Exchange Protocol (M): Open-market trading. Authorized at Level 20.\n- Ascension Reset: Exchange current progress for permanent Antimatter boosts.\n- VIP Authorization: Requires 1B NRG. Unlocks unique identifiers.\n- Markets: NRG investment in corporate entities." },
                             { role: "user", content: query }
                         ]
                     })
                 });
 
                 const data = await response.json();
-                if (!data.choices) throw new Error("API ERROR");
+                if (!data.choices) throw new Error("UPSTREAM_LINK_ERROR");
                 const reply = data.choices[0].message.content;
 
                 const aiMsg = document.createElement('div');
@@ -1775,12 +2123,14 @@ const ITEMS = {
                     utterance.rate = 1.1;
                     utterance.pitch = 0.8;
                     window.speechSynthesis.speak(utterance);
-                    createToast("VOICE TRANSMISSION ACTIVE");
+                    createToast("AUDIO_LINK_ACTIVE");
                 }
             } catch (e) {
+                console.error("AI Assistant Error:", e);
                 const errMsg = document.createElement('div');
-                errMsg.style.color = "#f00";
-                errMsg.innerText = "KRONOS: Link failure. Retry requested.";
+                errMsg.style.color = "#ff0055";
+                errMsg.style.fontSize = "0.6rem";
+                errMsg.innerHTML = `<b style="color:#f00">KRONOS:</b> link_unstable. Signal lost in deep space sectors. Manual synchronization required. (CODE: ${e.message})`;
                 box.appendChild(errMsg);
             }
         }
@@ -1800,17 +2150,15 @@ const ITEMS = {
             if (!grid) return;
             grid.innerHTML = '';
 
-            const maxSlots = 16;
-            const itemsToShow = state.inventory.slice(0, maxSlots);
+            document.getElementById('inv-header-q').innerText = `CARGO_HOLD [${state.inventory.length}/${state.inventoryMax}]`;
 
-            document.getElementById('inv-header-q').innerText = `CARGO_HOLD [${state.inventory.length}/16]`;
-
-            for (let i = 0; i < maxSlots; i++) {
+            const displaySlots = Math.max(16, state.inventoryMax);
+            for (let i = 0; i < displaySlots; i++) {
                 const slot = document.createElement('div');
                 slot.className = 'slot';
 
-                if (i < itemsToShow.length) {
-                    const itemName = itemsToShow[i];
+                if (i < state.inventory.length) {
+                    const itemName = state.inventory[i];
                     const itemData = ITEMS[itemName] || { icon: '?', color: '#fff', desc: '???' };
 
                     let rarityColor = "#fff";
@@ -1818,10 +2166,10 @@ const ITEMS = {
                     if(itemData.rarity === "Epic") rarityColor = "#f0f";
                     if(itemData.rarity === "Legendary") rarityColor = "#ffd700";
 
-                    slot.innerHTML = `<span style="color:${rarityColor}; font-size: 1.5rem;">${itemData.icon || '⬢'}</span>`;
+                    slot.innerHTML = `<span style="color:${rarityColor}; font-size: 2rem;">${itemData.icon || '⬢'}</span>`;
                     slot.onmouseover = () => showItemDetail(itemName, itemData);
                     slot.onmouseleave = () => hideItemDetail();
-                    slot.onclick = () => useItem(i);
+                    slot.onclick = () => openItemModal(i);
                 } else {
                     slot.style.opacity = "0.2";
                     slot.innerText = "·";
@@ -1832,19 +2180,22 @@ const ITEMS = {
         }
 
         function showItemDetail(name, data) {
-            const tooltip = document.getElementById('item-desc-q');
+            const tooltip = document.getElementById('item-hover-info');
             document.getElementById('it-name-q').innerText = name;
             document.getElementById('it-text-q').innerText = data.desc || data.text || "No data.";
+            document.getElementById('it-type-q').innerText = (data.rarity || "COMMON").toUpperCase();
             document.getElementById('it-type-q').style.color = data.color || "#0ff";
             tooltip.classList.add('active');
-            tooltip.style.opacity = '1';
+            
+            // Reposition tooltip based on screen side
+            tooltip.style.left = "-320px";
+            
             if (qMenuCore) qMenuCore.material.color.set(data.color || "#00f2ff");
         }
 
         function hideItemDetail() {
-            const tooltip = document.getElementById('item-desc-q');
+            const tooltip = document.getElementById('item-hover-info');
             tooltip.classList.remove('active');
-            tooltip.style.opacity = '0';
             if (qMenuCore) qMenuCore.material.color.set(0x00f2ff);
         }
 
@@ -1856,6 +2207,7 @@ const ITEMS = {
         }
 
         function returnDrone(i) {
+            if (!hasInventorySpace()) return;
             const d = state.drones[i];
             const name = d.type.charAt(0).toUpperCase() + d.type.slice(1) + " Drone";
             state.inventory.push(name);
@@ -1925,6 +2277,7 @@ const ITEMS = {
         }
 
         function claimExpedition(idx) {
+            if (!hasInventorySpace()) return;
             state.expeditions[idx].claimed = true;
             const rewards = ["Dark Matter", "Cyber Chip", "Crystal", "Ancient Tech", "Energy Sphere"];
             const reward = rewards[Math.floor(Math.random()*rewards.length)];
@@ -2074,6 +2427,9 @@ const ITEMS = {
             document.getElementById('cost-storage').innerText = "Цена: " + state.costs.storage;
             document.getElementById('cost-matter').innerText = "Цена: " + state.costs.matter;
             document.getElementById('cost-plating').innerText = "Цена: " + state.costs.plating;
+            if (document.getElementById('cost-inv')) {
+                document.getElementById('cost-inv').innerText = "Цена: " + state.costs.inv;
+            }
         }
 
         let wires = [];
@@ -2283,11 +2639,13 @@ const ITEMS = {
 
                 // Random drone drop from passive drones
                 if (Math.random() < 0.00005 * state.drones.length) {
-                    const types = ['fragile', 'tank', 'scavenger', 'turbo'];
-                    const type = types[Math.floor(Math.random()*types.length)];
-                    state.inventory.push(type.charAt(0).toUpperCase() + type.slice(1) + " Drone");
-                    createToast("DRONE RECOVERED BY FLEET!");
-                    updateInventoryUI();
+                    if (hasInventorySpace()) {
+                        const types = ['fragile', 'tank', 'scavenger', 'turbo'];
+                        const type = types[Math.floor(Math.random()*types.length)];
+                        state.inventory.push(type.charAt(0).toUpperCase() + type.slice(1) + " Drone");
+                        createToast("DRONE RECOVERED BY FLEET!");
+                        updateInventoryUI();
+                    }
                 }
 
                 state.heat = Math.min(100, state.heat + (income * 0.05));
@@ -2370,7 +2728,6 @@ const ITEMS = {
             }
         }
 
-        let frameCount = 0;
         function updateMovement(delta) {
             const altitudeScale = Math.max(1, camera.position.y / 15);
             let moveSpeed = (state.turboActive ? 1.2 : 0.6) * altitudeScale;
@@ -2549,7 +2906,9 @@ const ITEMS = {
                         if (target.reward) {
                             gain = target.reward.cr;
                             addXP(target.reward.xp);
-                            state.inventory.push(target.reward.item);
+                            if (hasInventorySpace()) {
+                                state.inventory.push(target.reward.item);
+                            }
                         }
 
                         state.energy += gain;
